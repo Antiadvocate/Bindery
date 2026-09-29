@@ -1,3 +1,8 @@
+# Bindery patch — September 29, 2026 (9): planning written as prose
+The bundle is now index-295cb6c1.js.
+1. The model's planning leaked into a chapter again, this time with no tags around it. It finished the chapter, then wrote paragraphs about the task ("The instruction says…", "Need to ensure about 350 words", "Let me refine:") and started a second draft. Only tagged notes were stripped, so all of it went into the book.
+2. Every chapter reply, continuation and passage rewrite is now read paragraph by paragraph. A paragraph that talks about the instructions, the word count, its own draft or a rewrite is dropped. When the reply holds two drafts, the later one is kept unless it is under 60% of the earlier one's length (a redraft cut off by the output limit), and a kept draft that stops mid-sentence is continued as before.
+3. Nothing is cut unless at least one paragraph is plainly about the task: a word count, a "let me rewrite", a quote of the system prompt. Dialogue inside quotation marks is ignored, so a character saying "the instructions say" stays in the book.
 # Bindery patch — September 29, 2026 (8): the planner understands, the writer lives it
 The bundle is now index-fb9da8a2.js.
 The ground was handed to the writer, the editor and the record-keeper as a plan to carry out, and the record measured each character's grip after every chapter. Sonnet followed it: the Mask's joking was filed as a stuck grip, pressed for five chapters and let go of, with a dog out of the ground's own examples reading everyone's feelings. George Saunders (a Nyingma practitioner) calls this an overdetermined story: the writer saying what it planned to say whatever the story answers.

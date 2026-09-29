@@ -21368,6 +21368,57 @@ function stripThoughts(t) {
     .replace(new RegExp(`^[\\s\\S]*?<\\/(?:${THOUGHT_TAG})>`, "i"), "")
     .replace(new RegExp(`<(?:${THOUGHT_TAG})>[\\s\\S]*$`, "i"), "");
 }
+// Some models also plan in plain paragraphs with no tags: a draft, then "The instruction says...",
+// "Need to ensure about 350 words", "Let me refine:", then a second draft. A paragraph that talks
+// about the task is dropped along with any draft it replaced; the last full draft is kept.
+const PLAN_STRONG = [
+  /^\s*(?:ok(?:ay)?,?\s*|so,?\s*|now,?\s*)?(?:let me|let's|let us|I(?:'ll| will| need to| should)) (?:refine|rewrite|revise|redo|redraft|polish|tighten|count|check|draft|write (?:it|the chapter|this|out)|produce|output|finali[sz]e)\b/i,
+  /\b(?:word count|(?:about|around|approximately|approx\.?|roughly|under|over|target(?:ing)?|length(?: of)?|~)\s*~?\d{2,5}\s*words)\b/i,
+  /\b(?:each reply is|the text of one chapter|no title, no heading|no heading, no notes)\b/i,
+  /\b(?:the|my|this|that) (?:system prompt|user'?s? (?:request|prompt|instructions?))\b/i,
+  /\b(?:final (?:answer|output|version|draft)|here(?:'s| is) the (?:chapter|final|revised|refined)[^:\n]{0,20})\s*:/i,
+];
+const PLAN_WEAK = [
+  /\bthe (?:instructions?|brief|prompt|outline|plan)\b[^.\n]{0,40}\b(?:says?|said|asks?|wants?|requires?|tells?|calls for)\b/i,
+  /\b(?:my|this|the first|the previous|the above) (?:draft|output|reply|response)\b/i,
+  /\b(?:we|I) (?:need|should|must|have) (?:to )?(?:ensure|output|include|avoid|keep|start|make sure|follow|check)\b|^\s*need to\b/i,
+  /\b(?:author'?s note|chapter (?:text|title|heading)|the chapter (?:ends|is done|is complete|is finished)|end of (?:the )?chapter)\b/i,
+  /\b(?:sensory details?|kinetic|profanity|word choice|POV|the prose)\b/i,
+  /^\s*(?:wait|hmm+|okay|ok|alright)\b[,.?!:]/i,
+];
+function planScore(p) {
+  const t = p.replace(/["“][^"”\n]{0,600}["”]/g, " ").replace(/«[^»\n]{0,600}»/g, " ");
+  let s = 0;
+  for (const r of PLAN_STRONG) r.test(t) && (s += 2);
+  const strong = s > 0;
+  for (const r of PLAN_WEAK) r.test(t) && (s += 1);
+  return { meta: s >= 2, strong };
+}
+function stripPlanning(t) {
+  const src = String(t || "");
+  const paras = src.split(/\n[ \t]*\n/);
+  if (paras.length < 2) return src;
+  const scores = paras.map(planScore),
+    meta = scores.map((x) => x.meta);
+  // Two weak signals can mark a paragraph, but nothing is cut unless one paragraph is plainly about the task.
+  if (!scores.some((x) => x.strong)) return src;
+  // Runs of story paragraphs between the planning ones.
+  const runs = [];
+  let cur = [];
+  paras.forEach((p, i) => {
+    if (meta[i]) {
+      cur.length && runs.push(cur);
+      cur = [];
+    } else cur.push(p);
+  });
+  cur.length && runs.push(cur);
+  if (!runs.length) return "";
+  const words = (r) => r.join(" ").trim().split(/\s+/).filter(Boolean).length;
+  const most = Math.max(...runs.map(words));
+  // The last draft wins unless it is much shorter than an earlier one (a redraft cut off mid-way).
+  for (let i = runs.length - 1; i >= 0; i--) if (words(runs[i]) >= most * 0.6) return runs[i].join("\n\n");
+  return runs[runs.length - 1].join("\n\n");
+}
 function lastWhole(t) {
   const s = String(t || "").trimEnd();
   if (!cutOff(s)) return s;
@@ -22359,7 +22410,7 @@ Continue the chapter from exactly where it stops. Start with the very next chara
           m,
         );
       this.track(a, k ? `${s} (continued)` : s, l, p.usage);
-      let piece = stripThoughts(p.text);
+      let piece = stripPlanning(stripThoughts(p.text));
       k && (piece = piece.replace(/^\s*=+[^\n]*\n/, ""));
       if (k && !piece.trim()) continue;
       text = k ? head + (/\s$/.test(head) || /^[\s,.;:!?…’'”")\]-]/.test(piece) || /[—–-]$/.test(head) ? "" : /[A-Za-z]$/.test(head) && /^[a-z]/.test(piece) ? "" : " ") + piece.replace(/^\n+/, /[.!?…"”’)]$/.test(head.trim()) ? "\n\n" : "") : piece;
@@ -23056,7 +23107,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       temperature: a.settings.temperature,
     });
     (this.track(a, `Ch ${s + 1} · passage`, a.settings.proseModel, c.usage), this.emit(a));
-    const d = cleanProse(c.text).replace(/^[«"“']+|[»"”']+$/g, "");
+    const d = cleanProse(stripPlanning(stripThoughts(c.text))).replace(/^[«"“']+|[»"”']+$/g, "");
     if (!d) throw new Error("The model returned nothing for this passage. Try again or swap the prose model.");
     return d;
   }
