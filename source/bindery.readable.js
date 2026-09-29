@@ -21193,6 +21193,7 @@ function peopleNow(n, beforeCh) {
       where: pick("where"),
       state: pick("state"),
       wants: pick("wants"),
+      called: pick("called"),
       grip: last.grip || "",
       holding: last.holding || "",
       misreads: last.misreads || "",
@@ -21206,6 +21207,10 @@ function peopleNow(n, beforeCh) {
   }
   return out;
 }
+function unmetCast(n, beforeCh) {
+  const seen = (n.bible.people || []).filter((p) => (p.log || []).some((e) => e.ch < beforeCh));
+  return n.characters.map((c) => c.name).filter((x) => x && !seen.some((p) => sameName(x, p.name)));
+}
 function peopleBlock(n, beforeCh, onStage) {
   const all = peopleNow(n, beforeCh);
   if (!all.length) return "";
@@ -21217,6 +21222,7 @@ function peopleBlock(n, beforeCh, onStage) {
       const full = i < 8 || inStage(p);
       return [
         `- ${p.name} (last seen ch ${p.lastCh + 1})${p.gone ? `: ${p.gone}` : ""}.`,
+        p.called && `Called on the page so far: ${p.called}.`,
         p.where && `Where: ${p.where}.`,
         p.state && `State: ${p.state}.`,
         p.grip && `Grip: ${p.grip}.`,
@@ -21373,10 +21379,23 @@ function cutOff(t, finish) {
   const e = String(t || "").trim();
   return e.length > 200 && !/[.!?…"”’')\]*_—–-]$/.test(e);
 }
+// Models with thinking switched off sometimes write their planning into the reply anyway, in
+// <think>, <thinking>, <reasoning> or similar tags. None of it belongs in the book.
+const THOUGHT_TAG = "think|thinking|thought|thoughts|reasoning|reflection|analysis|scratchpad|planning|plan|notes";
+function stripThoughts(t) {
+  return String(t || "")
+    .replace(new RegExp(`<(${THOUGHT_TAG})>[\\s\\S]*?<\\/\\1>`, "gi"), "")
+    .replace(new RegExp(`^[\\s\\S]*?<\\/(?:${THOUGHT_TAG})>`, "i"), "")
+    .replace(new RegExp(`<(?:${THOUGHT_TAG})>[\\s\\S]*$`, "i"), "");
+}
+function lastWhole(t) {
+  const s = String(t || "").trimEnd();
+  if (!cutOff(s)) return s;
+  const m = [...s.matchAll(/[.!?…]["”’')\]*_]*(?=\s)/g)].pop();
+  return m && m.index > s.length * 0.6 ? s.slice(0, m.index + m[0].length) : s;
+}
 function cleanProse(t) {
-  let s = String(t || "")
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/^[\s\S]*?<\/think>/i, "")
+  let s = stripThoughts(t)
     .replace(/\r\n/g, NL)
     .trim();
   const lines = s.split(NL);
@@ -21691,11 +21710,13 @@ function cs(n) {
 function _f(n, a, s) {
   const m = manuscript(n, s),
     worn = wornPhrases(n, s),
-    open = n.bible.threads.filter((c) => c.status !== "resolved");
+    open = n.bible.threads.filter((c) => c.status !== "resolved"),
+    unmet = s > 0 ? unmetCast(n, s) : [];
   return [
     m.summarized && n.bible.canon.length ? `FACTS FROM THE SUMMARIZED CHAPTERS:${NL}${bullets(canonFor(n, 50, a))}` : "",
     peopleBlock(n, s, a.cast) && `WHERE EACH CHARACTER IS NOW, going into this chapter:${NL}${peopleBlock(n, s, a.cast)}`,
     open.length ? `STORY THREADS STILL OPEN: ${open.map((c) => c.name).join("; ")}` : "",
+    unmet.length ? `NOT IN THE BOOK YET (the reader hasn't met them or heard their names): ${unmet.join(", ")}` : "",
     "",
     `NEXT: ${Ho(a, s, n.chapters.length || n.numChapters, n.targetWords)}`,
     s > 0
@@ -21719,7 +21740,8 @@ ${GROUND}`;
 function mE(n, a, s, l) {
   const prev = s > 0 ? n.chapters[s - 1]?.state.final || "" : "",
     tail = prev ? prev.split(/\s+/).slice(-1200).join(" ") : "",
-    pb = peopleBlock(n, s, a.cast);
+    pb = peopleBlock(n, s, a.cast),
+    unmet = s > 0 ? unmetCast(n, s) : [];
   return `${n.characters.length ? `THE CHARACTERS:\n${n.characters.map(groundLine).join(NL)}\n\n` : ""}${n.texture ? `WHERE THE TONE COMES FROM: ${n.texture}\n\n` : ""}${tail ? `THE END OF THE PREVIOUS CHAPTER:\n${tail}\n\n` : ""}STYLE: ${n.styleGuide || "(not given)"}
 
 THE PLAN FOR THIS CHAPTER:
@@ -21729,7 +21751,7 @@ Planned ending: ${a.exitHook || "(none)"}
 
 ESTABLISHED FACTS:
 ${bullets(canonFor(n, 60, a)) || "(none yet)"}
-${pb ? `\nWHERE THE CHARACTERS STOOD BEFORE THIS CHAPTER:\n${pb}\n` : ""}
+${pb ? `\nWHERE THE CHARACTERS STOOD BEFORE THIS CHAPTER:\n${pb}\n` : ""}${unmet.length ? `\nNOT IN THE BOOK BEFORE THIS CHAPTER (the reader hadn't met them or heard their names): ${unmet.join(", ")}\n` : ""}
 === DRAFT OF CHAPTER ${s + 1} ===
 ${l}
 === END OF DRAFT ===
@@ -21739,7 +21761,7 @@ Read the draft as an editor would. Reply with this JSON:
   "beats": [{ "i": number, "covered": boolean, "note": string }],   // one per planned beat
   "entryContinuous": boolean,   // does it follow on from the end of the previous chapter without a gap the reader can't account for?
   "exitDelivered": boolean,
-  "continuityErrors": string[], // things that contradict the previous chapter or the facts. [] if none
+  "continuityErrors": string[], // things that contradict the previous chapter or the facts, including anyone called by a name the reader was never given. [] if none
   "characterBreaks": string[],  // up to 4 places where someone acts in a way that makes no sense for them or for what has happened so far. Quote the line. [] if none
   "groundBreaks": string[],     // up to 4 places where a being doesn't work the way described above: an animal or other non-human written as a human in a costume; someone braced reads others accurately; a pattern stops firing because the scene turned sad or it was convenient; a cold character is warmed, or how they are made is explained as a wound; someone is freed or changed by being told about themselves; someone narrates their own inner workings; a letting-go with nothing built up to it, or one that turns them into someone new; the tone stated or performed instead of coming out of the characters. Quote the line. [] if none
   "onTheNose": string[],        // up to 5 exact short quotes where a feeling or the meaning is stated outright. [] if none
@@ -21804,6 +21826,7 @@ Reply with this JSON:
   "canonDeltas": string[],      // new facts that must stay true from now on: names, ages, relationships, injuries, deaths, objects and who has them, rules of the world, things revealed. [] if none
   "people": [{                  // everyone who appeared or was affected in this chapter; use the cast names exactly
     "name": string,
+    "called": string,           // every name or label the text has used for them so far, including this chapter (a nickname someone gave them counts); say so if their own name hasn't been given on the page
     "where": string,            // where they are at the end of the chapter
     "state": string,            // their physical and emotional condition now, in plain words
     "grip": string,             // how tight they are at the end: open, settled, guarded, braced, clenched or breaking
@@ -21866,9 +21889,12 @@ function fixSystem() {
 function fixPrompt(n, paras, notes) {
   return [
     n.styleGuide && `STYLE GUIDE: ${n.styleGuide}`,
-    "Each paragraph below comes from a finished chapter and has problems listed under it. Rewrite each paragraph to fix exactly those problems. Keep what happens, what is said, who says it, the tense and point of view, and roughly the length. Don't replace a stock phrase with another stock phrase; say the thing plainly or cut it. Leave everything else in the paragraph as it is.",
+    "Each paragraph below comes from a finished chapter and has problems listed under it. The paragraphs just before and after it are shown so you can see what it answers and what follows it; they stay as they are. Rewrite each paragraph to fix exactly those problems. Keep what happens, what is said, who says it, the tense and point of view, and roughly the length. It has to join up with the paragraphs around it and not repeat what they already say. Don't replace a stock phrase with another stock phrase; say the thing plainly or cut it. Leave everything else in the paragraph as it is.",
     "",
-    ...paras.map((p, i) => `<<<P${i + 1}>>>${NL}${p.text}${NL}PROBLEMS: ${p.why.join("; ")}${NL}`),
+    ...paras.map(
+      (p, i) =>
+        `${p.before ? `(before, unchanged: ${p.before})${NL}` : ""}<<<P${i + 1}>>>${NL}${p.text}${NL}PROBLEMS: ${p.why.join("; ")}${NL}${p.after ? `(after, unchanged: ${p.after})${NL}` : ""}`,
+    ),
     notes || "",
     `Reply with each rewritten paragraph after its marker, in the same order, and nothing else:${NL}<<<P1>>>${NL}(paragraph 1)${NL}<<<P2>>>${NL}(paragraph 2)`,
   ]
@@ -22332,8 +22358,9 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
     const prefix = typeof f == "object" ? f.prefix : "";
     f = typeof f == "object" ? f.user : f;
     // A chapter that stops because it hit the output limit (or stops mid-sentence) is continued
-    // from its last word instead of being accepted as finished. Up to two continuations.
-    for (let k = 0; k < 3; k++) {
+    // from its last word instead of being accepted as finished. Up to three continuations; a reply
+    // that was only the model's own notes counts as a try and adds nothing.
+    for (let k = 0; k < 4; k++) {
       this.guard(a);
       const m = this.signal(),
         head = text,
@@ -22364,12 +22391,17 @@ Continue the chapter from exactly where it stops. Start with the very next chara
           m,
         );
       this.track(a, k ? `${s} (continued)` : s, l, p.usage);
-      let piece = p.text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+      let piece = stripThoughts(p.text);
       k && (piece = piece.replace(/^\s*=+[^\n]*\n/, ""));
+      if (k && !piece.trim()) continue;
       text = k ? head + (/\s$/.test(head) || /^[\s,.;:!?…’'”")\]-]/.test(piece) || /[—–-]$/.test(head) ? "" : /[A-Za-z]$/.test(head) && /^[a-z]/.test(piece) ? "" : " ") + piece.replace(/^\n+/, /[.!?…"”’)]$/.test(head.trim()) ? "\n\n" : "") : piece;
-      if (!piece.trim() || !cutOff(text, p.finish) || oo(text, 50)) break;
+      if (!piece.trim() || !cutOff(text, p.finish) || oo(text, 50)) {
+        text = cleanProse(text);
+        return cutOff(text) ? lastWhole(text) : text;
+      }
     }
-    return cleanProse(text);
+    // Still cut off after every continuation: end on the last whole sentence rather than mid-word.
+    return lastWhole(cleanProse(text));
   }
   async buildCharter(a) {
     const s = planModel(a);
@@ -22672,7 +22704,11 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
     if (whole.dashRate > 9) paras.forEach((p, i) => (p.match(/—|–/g) || []).length >= 2 && add(i, "too many dashes; use commas, full stops or parentheses"));
     const idx = [...flagged.keys()].sort((x, y) => flagged.get(y).length - flagged.get(x).length).slice(0, 14).sort((x, y) => x - y);
     if (!idx.length) return text;
-    const list = idx.map((i) => ({ i, text: paras[i].trim(), why: flagged.get(i) }));
+    const near = (i, d) => {
+        for (let j = i + d; j >= 0 && j < paras.length; j += d) if (paras[j].trim() && !Sf.test(paras[j])) return paras[j].trim();
+        return "";
+      },
+      list = idx.map((i) => ({ i, text: paras[i].trim(), why: flagged.get(i), before: near(i, -1), after: near(i, 1) }));
     const sig = this.signal(),
       r = await i0(
         () =>
@@ -22694,7 +22730,10 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
     let changed = 0;
     for (let k = 1; k < out.length; k += 2) {
       const n = Number(out[k]) - 1,
-        body = (out[k + 1] || "").replace(/\n+PROBLEMS:[\s\S]*$/i, "").trim();
+        body = (out[k + 1] || "")
+          .replace(/\n+PROBLEMS:[\s\S]*$/i, "")
+          .replace(/^\s*\((?:before|after), unchanged:[^\n]*$/gim, "")
+          .trim();
       if (!list[n] || !body) continue;
       const ratio = Oe(body) / Math.max(1, Oe(list[n].text));
       if (ratio < 0.5 || ratio > 1.8 || oo(body, 50)) continue;
@@ -22960,6 +22999,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       people: rn(a?.people)
         .map((p) => ({
           name: Rt(p?.name).trim(),
+          called: Rt(p?.called),
           where: Rt(p?.where),
           state: Rt(p?.state),
           grip: Rt(p?.grip),
@@ -22998,7 +23038,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
         p = { name: c ? c.name : e.name, log: [] };
         a.bible.people.push(p);
       }
-      p.log.push({ ch: s, where: e.where, state: e.state, grip: e.grip, holding: e.holding, misreads: e.misreads, fired: e.fired, released: e.released, knows: e.knows, wants: e.wants, changed: e.changed, relations: e.relations, gone: e.gone });
+      p.log.push({ ch: s, called: e.called, where: e.where, state: e.state, grip: e.grip, holding: e.holding, misreads: e.misreads, fired: e.fired, released: e.released, knows: e.knows, wants: e.wants, changed: e.changed, relations: e.relations, gone: e.gone });
       p.log.sort((x, y) => x.ch - y.ch);
     }
   }
