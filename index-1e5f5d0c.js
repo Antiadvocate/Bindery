@@ -544,7 +544,77 @@ ${p}
 
 Continue the chapter from exactly where it stops. Start with the very next characters, including the rest of any unfinished word or sentence, and repeat nothing. Then write the rest of the chapter as planned, up to its planned ending.`:c,C=await _h(()=>this.caller.chat({model:o,system:l,user:k,userPrefix:m,label:y?`${s} (continued)`:s,maxTokens:u,temperature:r.settings.temperature,...this.opts(r),signal:x,onDelta:(w,S)=>h(b+S)}),3,x);this.track(r,y?`${s} (continued)`:s,o,C.usage);let v=stripPlanning($1(C.text));if(y&&(v=v.replace(/^\s*=+[^\n]*\n/,"")),!(y&&!v.trim())&&(p=y?b+(/\s$/.test(b)||/^[\s,.;:!?…’'”")\]-]/.test(v)||/[—–-]$/.test(b)||/[A-Za-z]$/.test(b)&&/^[a-z]/.test(v)?"":" ")+v.replace(/^\n+/,/[.!?…"”’)]$/.test(b.trim())?`
 
-`:""):v,!v.trim()||!Ih(p,C.finish)||Ca(p,50)))return p=ql(p),Ih(p)?O1(p):p}return O1(ql(p))}async buildCharter(r){const s=Hh(r);let o;try{o=await this.jsonCall(r,"Charter",s,HC(),UC(r),2600,l=>Array.isArray(l?.charter)||typeof l?.styleGuide=="string",{webSearch:r.settings.webSearch})}catch(l){if(/Paused|abort/i.test(String(l?.message||l))||mt(r.premise)>FC||r.referenceText.trim())throw l;r.charterVerbatim=!0,r.charter=r.premise.split(/\n+/).map(c=>c.trim()).filter(Boolean),r.styleGuide=r.styleNotes.trim(),r.title||(r.title="Untitled"),this.emit(r);return}r.charterVerbatim=!1,r.charter=Lt(o.charter),r.charter.length||(r.charter=[r.premise.slice(0,3e3)]),r.styleGuide=Ae(o.styleGuide,r.styleNotes),r.title.trim()||(r.title=Ae(o.title,"Untitled")),r.logline.trim()||(r.logline=Ae(o.logline)),r.genre.trim()||(r.genre=Ae(o.genre)),this.emit(r)}normalizeChapter(r,s){return{id:`ch_${s}_${Date.now().toString(36)}`,title:Ae(r?.title,`Chapter ${s+1}`),summary:Ae(r?.summary,""),beats:Lt(r?.beats),entryHook:Ae(r?.entryHook),exitHook:Ae(r?.exitHook),pov:Ae(r?.pov),location:Ae(r?.location),timeframe:Ae(r?.timeframe),cast:Lt(r?.cast),tension:Math.max(1,Math.min(10,Number(r?.tension)||5)),turn:Ae(r?.turn)||void 0,subtext:Ae(r?.subtext)||void 0,motif:Ae(r?.motif)||void 0,pressure:Ae(r?.pressure)||void 0,state:aC()}}normalizeCharacters(r){const s=o=>typeof o=="string"?o:Array.isArray(o)?o.map(l=>typeof l=="string"?l:l&&typeof l=="object"?Object.values(l).join(": "):"").filter(Boolean).join("; "):o&&typeof o=="object"?Object.entries(o).map(([l,c])=>`${l}: ${c}`).join("; "):"";return Zt(r).map(o=>({name:Ae(o?.name).trim(),role:s(o?.role),want:s(o?.want),wound:s(o?.wound),voice:s(o?.voice)||s(o?.like),abilities:s(o?.abilities)||void 0,arc:s(o?.arc),speech:s(o?.speech)||void 0,need:s(o?.need)||void 0,lie:s(o?.lie)||void 0,secret:s(o?.secret)||void 0,kind:s(o?.kind)||void 0,grip:s(o?.grip)||void 0,fears:s(o?.fears)||void 0,rest:s(o?.rest)||void 0,style:s(o?.style)||void 0,underThreat:s(o?.underThreat)||void 0,conscience:s(o?.conscience)||void 0,patterns:s(o?.patterns)||void 0,wrongAbout:s(o?.wrongAbout)||void 0,relations:s(o?.relations)||void 0})).filter(o=>o.name)}mergeCast(r,s){const o=c=>c.trim().toLowerCase(),l=r.characters.filter(c=>c.name.trim()).map(c=>({...c}));for(const c of s){const u=l.find(h=>ks(h.name,c.name));if(u)for(const h of Object.keys(c))(u[h]===void 0||u[h]==="")&&c[h]&&(u[h]=c[h]);else l.push(c)}r.characters=l}async designStory(r){const s=await this.jsonCall(r,"Cast",Hh(r),KC(),qC(r),3e3,p=>Array.isArray(p?.characters),{temperature:.7}),o=Ae(s?.world),l=Ae(s?.aim),c=[o,l&&`What the book is after: ${l}`].filter(Boolean).join(`${ge}${ge}`)||Ae(s?.texture);this.mergeCast(r,this.normalizeCharacters(s?.characters)),c&&(r.texture=c);const u={},h={question:Ae(u.question),motifs:Zt(u.motifs).map(p=>({image:Ae(p?.image),arc:Ae(p?.arc)})).filter(p=>p.image),ironies:Lt(u.ironies),characters:r.characters.filter(p=>p.lie&&p.need).map(p=>({name:p.name,lie:p.lie,need:p.need}))};this.emit(r)}async buildOutline(r){this.running=!0;try{try{await this.designStory(r)}catch(u){if(/Paused|abort/i.test(String(u?.message||u)))throw u}if(r.voiceSample?.trim()&&(!r.voiceLock||Ul(r)))try{const u=await this.jsonCall(r,"Voice lock",r.settings.editorModel,i4(),o4(r.voiceSample),900),h=Lt(u?.laws);h.length&&(r.voiceLock=h.map(p=>`- ${p}`).join(ge),r.voiceLockAuto=!1)}catch{}const s=Hh(r),o=r.targetWords<=700,l=o?200:820;if(r.numChapters<=(o?24:14)){const u=r.numChapters,h=await this.jsonCall(r,"Outline",s,$h(r),VC(r,o),Es(l*u+2200),p=>Array.isArray(p?.chapters)&&p.chapters.length>=Math.min(u,Math.max(1,Math.ceil(u*.8))),{temperature:.6,webSearch:r.settings.webSearch});this.applyOutline(r,h,Zt(h?.chapters))}else await this.buildOutlineBatched(r,s,o);const c=r.settings.autoIllustrate==="scene"||r.settings.autoIllustrate==="words";if(c&&!r.codex)try{r.codex=await Fi(r,(u,h,p)=>this.track(r,u,h,p),this.caller),this.emit(r)}catch{}if(r.codex&&c&&this.events.prePaintPortraits){this.setStage(r,0,"illustrating");try{await this.events.prePaintPortraits(r)}catch{}r.chapters[0]&&(r.chapters[0].state.stage="pending")}r.phase="outline",this.emit(r)}finally{this.running=!1}}async buildOutlineBatched(r,s,o=!1){const l=await this.jsonCall(r,"Outline \xB7 skeleton",s,$h(),`${B1(r)}
+`:""):v,!v.trim()||!Ih(p,C.finish)||Ca(p,50)))return p=ql(p),Ih(p)?O1(p):p}return O1(ql(p))}async buildCharter(r){const s=Hh(r);let o;try{o=await this.jsonCall(r,"Charter",s,HC(),UC(r),2600,l=>Array.isArray(l?.charter)||typeof l?.styleGuide=="string",{webSearch:r.settings.webSearch})}catch(l){if(/Paused|abort/i.test(String(l?.message||l))||mt(r.premise)>FC||r.referenceText.trim())throw l;r.charterVerbatim=!0,r.charter=r.premise.split(/\n+/).map(c=>c.trim()).filter(Boolean),r.styleGuide=r.styleNotes.trim(),r.title||(r.title="Untitled"),this.emit(r);return}r.charterVerbatim=!1,r.charter=Lt(o.charter),r.charter.length||(r.charter=[r.premise.slice(0,3e3)]),r.styleGuide=Ae(o.styleGuide,r.styleNotes),r.title.trim()||(r.title=Ae(o.title,"Untitled")),r.logline.trim()||(r.logline=Ae(o.logline)),r.genre.trim()||(r.genre=Ae(o.genre)),this.emit(r)}normalizeChapter(r,s){return{id:`ch_${s}_${Date.now().toString(36)}`,title:Ae(r?.title,`Chapter ${s+1}`),summary:Ae(r?.summary,""),beats:Lt(r?.beats),entryHook:Ae(r?.entryHook),exitHook:Ae(r?.exitHook),pov:Ae(r?.pov),location:Ae(r?.location),timeframe:Ae(r?.timeframe),cast:Lt(r?.cast),tension:Math.max(1,Math.min(10,Number(r?.tension)||5)),turn:Ae(r?.turn)||void 0,subtext:Ae(r?.subtext)||void 0,motif:Ae(r?.motif)||void 0,pressure:Ae(r?.pressure)||void 0,state:aC()}}normalizeCharacters(r){const s=o=>typeof o=="string"?o:Array.isArray(o)?o.map(l=>typeof l=="string"?l:l&&typeof l=="object"?Object.values(l).join(": "):"").filter(Boolean).join("; "):o&&typeof o=="object"?Object.entries(o).map(([l,c])=>`${l}: ${c}`).join("; "):"";return Zt(r).map(o=>({name:Ae(o?.name).trim(),role:s(o?.role),want:s(o?.want),wound:s(o?.wound),voice:s(o?.voice)||s(o?.like),abilities:s(o?.abilities)||void 0,arc:s(o?.arc),speech:s(o?.speech)||void 0,need:s(o?.need)||void 0,lie:s(o?.lie)||void 0,secret:s(o?.secret)||void 0,kind:s(o?.kind)||void 0,grip:s(o?.grip)||void 0,fears:s(o?.fears)||void 0,rest:s(o?.rest)||void 0,style:s(o?.style)||void 0,underThreat:s(o?.underThreat)||void 0,conscience:s(o?.conscience)||void 0,patterns:s(o?.patterns)||void 0,wrongAbout:s(o?.wrongAbout)||void 0,relations:s(o?.relations)||void 0})).filter(o=>o.name)}mergeCast(r,s){const o=c=>c.trim().toLowerCase(),l=r.characters.filter(c=>c.name.trim()).map(c=>({...c}));for(const c of s){const u=l.find(h=>ks(h.name,c.name));if(u)for(const h of Object.keys(c))(u[h]===void 0||u[h]==="")&&c[h]&&(u[h]=c[h]);else l.push(c)}r.characters=l}async designStory(r){const s=await this.jsonCall(r,"Cast",Hh(r),KC(),qC(r),3e3,p=>Array.isArray(p?.characters),{temperature:.7}),o=Ae(s?.world),l=Ae(s?.aim),c=[o,l&&`What the book is after: ${l}`].filter(Boolean).join(`${ge}${ge}`)||Ae(s?.texture);this.mergeCast(r,this.normalizeCharacters(s?.characters)),c&&(r.texture=c);const u={},h={question:Ae(u.question),motifs:Zt(u.motifs).map(p=>({image:Ae(p?.image),arc:Ae(p?.arc)})).filter(p=>p.image),ironies:Lt(u.ironies),characters:r.characters.filter(p=>p.lie&&p.need).map(p=>({name:p.name,lie:p.lie,need:p.need}))};this.emit(r)}async buildOutline(r){this.running=!0;try{try{await this.designStory(r)}catch(u){if(/Paused|abort/i.test(String(u?.message||u)))throw u}if(r.voiceSample?.trim()&&(!r.voiceLock||Ul(r)))try{const u=await this.jsonCall(r,"Voice lock",r.settings.editorModel,i4(),o4(r.voiceSample),900),h=Lt(u?.laws);h.length&&(r.voiceLock=h.map(p=>`- ${p}`).join(ge),r.voiceLockAuto=!1)}catch{}const s=Hh(r),o=r.targetWords<=700,l=o?200:820;if(r.numChapters<=(o?24:14)){const u=r.numChapters,h=await this.jsonCall(r,"Outline",s,$h(r),VC(r,o),Es(l*u+2200),p=>Array.isArray(p?.chapters)&&p.chapters.length>=Math.min(u,Math.max(1,Math.ceil(u*.8))),{temperature:.6,webSearch:r.settings.webSearch});this.applyOutline(r,h,Zt(h?.chapters))}else await this.buildOutlineBatched(r,s,o);const c=r.settings.autoIllustrate==="scene"||r.settings.autoIllustrate==="words";if(c&&!r.codex)try{r.codex=await Fi(r,(u,h,p)=>this.track(r,u,h,p),this.caller),this.emit(r)}catch{}if(r.codex&&c&&this.events.prePaintPortraits){this.setStage(r,0,"illustrating");try{await this.events.prePaintPortraits(r)}catch{}r.chapters[0]&&(r.chapters[0].state.stage="pending")}r.phase="outline",this.emit(r)}finally{this.running=!1}}  // The skeleton's one-line-per-chapter list, wherever the model filed it: "seeds", "chapters",
+// "outline", one level down, or a bare array. Items may be strings or use summary/logline for gist.
+pickSeeds(m) {
+  const has = (v) => Array.isArray(v) || Array.isArray(v?.seeds) || Array.isArray(v?.chapters);
+  const host = Array.isArray(m) ? {} : has(m?.seeds) || !m || typeof m != "object" ? m || {} : ["chapters", "outline", "skeleton", "book", "plan"].map((k) => m[k]).find(has) || m;
+  const list = Array.isArray(m)
+    ? m
+    : Array.isArray(host.seeds) ? host.seeds : Array.isArray(host.chapters) ? host.chapters : Array.isArray(host) ? host : Array.isArray(m?.seeds) ? m.seeds : [];
+  const str = (v) => (typeof v == "string" ? v.trim() : "");
+  const seeds = list
+    .map((x) =>
+      typeof x == "string"
+        ? { title: "", gist: x.trim() }
+        : x && typeof x == "object"
+          ? { title: str(x.title) || str(x.name), gist: str(x.gist) || str(x.summary) || str(x.logline) || str(x.description) || str(x.line) || str(x.plot) }
+          : null,
+    )
+    .filter((x) => x && (x.title || x.gist));
+  const src = Array.isArray(host) ? {} : host,
+    top = Array.isArray(m) ? {} : m || {};
+  return {
+    seeds,
+    plan: {
+      ...top,
+      threads: top.threads ?? src.threads,
+      newCharacters: top.newCharacters ?? src.newCharacters,
+      characters: top.characters ?? src.characters,
+    },
+  };
+}
+// A skeleton that came back short (cut off, or the model stopped early) is finished by asking
+// for only the missing chapters, twice at most, instead of failing the whole outline.
+async topUpSeeds(a, model, system, ctx, reply) {
+  const n = a.numChapters,
+    { seeds, plan } = this.pickSeeds(reply);
+  let f = seeds.slice(0, n);
+  for (let t = 0; t < 2 && f.length < n; t++) {
+    if (!this.running) throw new Error("Paused");
+    const left = n - f.length;
+    let more = null;
+    try {
+      more = await this.jsonCall(
+        a,
+        `Outline · skeleton ${f.length + 1}–${n}`,
+        model,
+        system,
+        `${ctx}
+
+THE BOOK SO FAR, ONE LINE PER CHAPTER:
+${f.map((S, k) => `${k + 1}. ${S.title}${S.title && S.gist ? ": " : ""}${S.gist}`).join("\n")}
+
+The book has ${n} chapters and only ${f.length} are planned. Return ONLY chapters ${f.length + 1} to ${n}, one line each, carrying the story on to its ending:
+{ "seeds": [{ "title": string, "gist": string }] }   // EXACTLY ${left} items`,
+        Math.max(1200, Math.min(16e3, Math.round(140 * left + 1500))),
+        (m) => this.pickSeeds(m).seeds.length > 0,
+        { temperature: 0.6 },
+      );
+    } catch (e) {
+      if (!this.running) throw e;
+    }
+    if (!more) break;
+    f = f.concat(this.pickSeeds(more).seeds).slice(0, n);
+  }
+  if (f.length < Math.ceil(n / 2))
+    throw new Error(
+      `Outline · skeleton: the architect planned only ${f.length} of ${n} chapters. Try again, lower the chapter count, or switch the architect model (sliders icon).`,
+    );
+  for (; f.length < n; ) f.push({ title: `Chapter ${f.length + 1}`, gist: "Continue the story toward the ending." });
+  return { seeds: f, plan };
+}
+async buildOutlineBatched(r,s,o=!1){let l=await this.jsonCall(r,"Outline \xB7 skeleton",s,$h(),`${B1(r)}
 
 ${W1}
 
@@ -553,7 +623,7 @@ The book is long (${r.numChapters} chapters), so for now return only the skeleto
   "seeds": [{ "title": string, "gist": string }],   // EXACTLY ${r.numChapters} items, one line each, covering the whole story from first chapter to last
   "threads": [{ "name": string, "note": string, "payoff": number }],   // 3-8 threads that run across chapters, with the chapter number where each pays off
   "newCharacters": [{ "name": string, "role": string, "want": string, "speech": string }]   // minor characters the plan needs, or []
-}`,Es(90*r.numChapters+2e3),p=>Array.isArray(p?.seeds)&&p.seeds.length>=Math.ceil(r.numChapters*.8),{temperature:.6,webSearch:r.settings.webSearch}),c=Zt(l?.seeds).slice(0,r.numChapters);for(;c.length<r.numChapters;)c.push({title:`Chapter ${c.length+1}`,gist:"Continue the story toward the ending."});const u=[],h=8;for(let p=0;p<r.numChapters;p+=h){if(!this.running)throw new Error("Paused");const m=c.slice(p,p+h),y=u.length?u[u.length-1].exitHook:"",x=u.slice(-6).map((k,C)=>`Ch ${u.length-Math.min(6,u.length)+C+1}: ${k.summary}`),b=await this.jsonCall(r,`Outline \xB7 ch ${p+1}\u2013${p+m.length}`,s,$h(),`RULES OF THE BOOK (never break these):
+}`,Es(140*r.numChapters+2500),p=>this.pickSeeds(p).seeds.length>0,{temperature:.6,webSearch:r.settings.webSearch});const _top=await this.topUpSeeds(r,s,$h(),`${B1(r)}\n\n${W1}`,l),c=_top.seeds;l=_top.plan;const u=[],h=8;for(let p=0;p<r.numChapters;p+=h){if(!this.running)throw new Error("Paused");const m=c.slice(p,p+h),y=u.length?u[u.length-1].exitHook:"",x=u.slice(-6).map((k,C)=>`Ch ${u.length-Math.min(6,u.length)+C+1}: ${k.summary}`),b=await this.jsonCall(r,`Outline \xB7 ch ${p+1}\u2013${p+m.length}`,s,$h(),`RULES OF THE BOOK (never break these):
 ${Fl(r.charter)}
 
 THE CAST (use these exact names):
