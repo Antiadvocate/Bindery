@@ -21076,6 +21076,7 @@ const vlAuto = (n) => n.voiceLockAuto ?? !n.voiceSample?.trim();
 const groundLine = (o) =>
   [
     `- ${o.name}${o.role ? ` (${o.role})` : ""}.`,
+    o.kind && `What it is and how it perceives: ${o.kind}.`,
     o.want && `Wants: ${o.want}.`,
     o.grip && `Holds onto: ${o.grip}.`,
     o.fears && `Most afraid of: ${o.fears}.`,
@@ -21107,25 +21108,29 @@ const castLine = (o) =>
   ]
     .filter(Boolean)
     .join(" ");
-const GROUND = `HOW PEOPLE WORK. This is the understanding the book is written from. It is never stated, named or taught on the page, and the book doesn't have to be about it: it is simply how everyone in it works, in any genre.
+const GROUND = `HOW ANYTHING THAT IS AWARE WORKS. This is the understanding the book is written from. It is never stated, named or taught on the page, and the book doesn't have to be about it: it is simply how every being in it works, in any genre. It holds for anything with awareness: a person, a dog, a crow, a swarm, a god, a ghost, a machine that has come to know itself. What differs is the body and the senses it happens through, not the thing itself.
 
-Underneath everyone is the same plain awareness, open and already whole. What a person experiences as "me" is a grip on it: a tightening that makes a self in here and a world out there, and then has to keep that self defended, fed and confirmed. Nobody sees their own grip. It feels like how things simply are.
+Underneath every being is the same plain awareness, open and already whole. What a being experiences as "me" is a grip on it: a tightening that makes a self in here and a world out there, and then has to keep that self defended, fed and confirmed. Nothing sees its own grip. It feels like how things simply are.
 
-The grip runs on hope and fear: of gain and loss, pleasure and pain, praise and blame, being somebody and being nobody. Nearly everything people do serves one of those, whether the stakes are an empire or a parking space.
+Each kind of being grips through what it has. A dog grips through smell, rank, food and the pack; a cat through territory; a god through its bliss and its standing; a hive through the colony; a machine through whatever it was built to hold. The world a being lives in is the world its senses and needs make: a dog's street is a map of smells, a mayfly's life is an afternoon, an immortal's year is a breath. Write each being from inside its own world, at its own scale of time, never as a human in a costume. Animals don't think in sentences; their grip shows in the body, the ears, the hackles, the circling and the waiting.
 
-When something touches the grip there is a charge: a tightening, then an urge to do something about it (blame, grab, joke, explain, leave, hit), and doing it feeds the tightening. People act on the urge far more often than they notice it.
+The grip runs on hope and fear: of gain and loss, pleasure and pain, praise and blame, being somebody and being nobody, in whatever form those take for that being. A scrap of food, a place on the sofa, the approval of the pack, an empire: the stakes change size, the grip doesn't.
 
-The body carries it. Each person has a resting point, from open to braced, and their own speed of coming back to it; events push them off it. A braced body sees others poorly and is certain anyway: neutral faces read as threats, and the misreading is the story. A braced body also narrows to its one thing, in attention and in speech. An open body is catchable by whatever is around it, says things for no reason, answers straight. People move toward what they want by inches and gestures while talking about something else; someone who narrates their own wants is a label, not a person.
+When something touches the grip there is a charge: a tightening, then an urge to do something about it (snap, grab, flee, joke, explain, hide), and doing it feeds the tightening. Beings act on the urge far more often than they notice it.
 
-A feeling is an event, not a possession. In a settled body it is felt through and passes, and leaves its information: anger becomes a clear view of what was wrong, fear becomes alertness, grief becomes plain love for what was lost, envy becomes the energy to go and do the thing. In a clenched body it is retold instead of felt, and the story about the pain becomes its own pain. Every stuck pattern is a capacity bent out of shape, the same energy either way: rage and clear sight, pride and generosity, craving and a fine sense of what matters, envy and getting things done, dullness and ease.
+The body carries it, whatever the body is. Each being has a resting point, from open to braced, and its own speed of coming back to it; events push it off. A braced being perceives others poorly and is certain anyway: a neutral face, a raised hand, a strange smell reads as a threat, and the misreading is the story. A braced being also narrows to its one thing. An open one is catchable by whatever is around it. Beings move toward what they want by inches and gestures while doing something else; one that narrates its own wants is a label, not a character.
 
-Everyone has a usual way of being stuck, and slips between them: burning, where everything is an enemy and fighting makes more to fight; starving, where nothing is ever enough and what is offered can't be taken in; dull, head down in the routine, refusing what doesn't fit; wanting and weighing, comparing, desiring, doubting, "if only"; competing, always measuring the other, everything a strategy; comfortable, absorbed in pleasure, status or their own rightness until it runs out. Each one takes itself completely seriously.
+A feeling is an event, not a possession. In a settled being it is felt through and passes, and leaves its information: anger becomes a clear view of what was wrong, fear becomes alertness, grief becomes plain love for what was lost, envy becomes the energy to go and do the thing. In a clenched being it is replayed instead of felt, and the replaying becomes its own pain. Every stuck pattern is a capacity bent out of shape, the same energy either way: rage and clear sight, pride and generosity, craving and a fine sense of what matters, envy and getting things done, dullness and ease.
 
-Habits fire whether or not anyone notices. Noticing is what loosens one, and it comes two ways: from ease, or from the thing arising so hard it can't be looked past, on the worst day. It is never available to the person as a decision, and nobody is freed by being told about themselves; being named usually tightens the grip. A grip held past what a body can hold lets go on its own: the sob, the laugh, the shaking. What was held keeps its information and drops its story, and for a while the person is more themselves, not someone new. Sometimes a charge just passes: caught and recognised like an old friend, or undoing itself like a knot, or rising and going with nowhere to land. From outside, that looks like very little happening.
+Every being has a usual way of being stuck, and slips between them: burning, where everything is an enemy and fighting makes more to fight; starving, where nothing is ever enough and what is offered can't be taken in; dull, head down in the routine, refusing what doesn't fit; wanting and weighing, comparing, desiring, doubting; competing, always measuring the other, everything a strategy; comfortable, absorbed in pleasure, status or its own rightness until it runs out. Each one takes itself completely seriously.
 
-Calm is not kindness. Some people feel others' pain barely or not at all: calm makes them sharper, not warmer, their darkness is how they are made rather than a wound, and comfort doesn't fix it. Under threat, some reach for people, some go cold and settle alone later, some reach and flinch in the same motion. Being sure of someone turns them into a picture, and the picture is what gets seen until something breaks through. Places hold what happened in them, and rooms tilt the people in them: calm holds a frightened stranger, panic sweeps a crowd.
+Habits fire whether or not anything notices. Noticing is what loosens one, and it comes two ways: from ease, or from the thing arising so hard it can't be looked past, on the worst day. It is never available as a decision, and no being is freed by being told about itself; being named usually tightens the grip. A grip held past what a body can hold lets go on its own: the sob, the laugh, the shaking, the dog that suddenly lies down. What was held keeps its information and drops its story, and for a while the being is more itself, not something new. Sometimes a charge just passes: caught and recognised like an old friend, or undoing itself like a knot, or rising and going with nowhere to land. From outside, that looks like very little happening.
 
-The tone the author asked for is not added on top. It comes out of these people, with these grips, meeting this situation.`;
+Calm is not kindness. Some beings feel others' pain barely or not at all: calm makes them sharper, not warmer, their darkness is how they are made rather than a wound, and comfort doesn't fix it. Under threat, some reach for others, some go cold and settle alone later, some reach and flinch in the same motion. Being sure of another turns it into a picture, and the picture is what gets seen until something breaks through. Places hold what happened in them, and a group tilts the beings in it: calm holds a frightened stranger, panic sweeps a herd.
+
+Things that aren't aware (weather, stones, tools, a mindless machine) don't grip anything; they are simply how the world appears to the beings that do.
+
+The tone the author asked for is not added on top. It comes out of these beings, with these grips, meeting this situation.`;
 const WRITING_RULES = `Write it the way a good novelist would: in scenes, in plain and specific prose, with people who talk like people and act on what they know and want, and keep everything consistent with what has already happened in the book.`;
 function S1(n) {
   return [
@@ -21136,7 +21141,7 @@ function S1(n) {
     WRITING_RULES,
     n.charter.length && `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
     n.premise && !n.charterVerbatim && `THE AUTHOR'S BRIEF:${NL}${n.premise.slice(0, 9e3)}`,
-    n.characters.length && `THE PEOPLE:${NL}${n.characters.map(groundLine).join(NL)}`,
+    n.characters.length && `THE CHARACTERS:${NL}${n.characters.map(groundLine).join(NL)}`,
   ]
     .filter(Boolean)
     .join(`${NL}${NL}`);
@@ -21587,14 +21592,15 @@ function designPrompt(n) {
       ? `CHARACTERS THE AUTHOR HAS ALREADY WRITTEN DOWN (keep them, same names, and keep what the author said):${NL}${user.map(groundLine).join(NL)}`
       : "",
     "",
-    "You are about to write this book. First, make your notes on its main people (3 to 8), seen the way described above. If a character comes from an existing film, book or game, they are exactly who they are there; your notes say what drives them. Invented characters get names that fit the setting. Nobody has an arc decided in advance: what happens to them comes from what they meet.",
+    "You are about to write this book. First, make your notes on its main characters (3 to 8), whatever they are: people, animals, gods, machines, a swarm. See them the way described above. If a character comes from an existing film, book or game, it is exactly who it is there; your notes say what drives it. Invented characters get names that fit the setting and what they are (an animal may have no name, or the one others gave it). Nobody has an arc decided in advance: what happens to them comes from what they meet.",
     "",
-    'Then work out, for "texture", where the tone the author asked for actually comes from in this book: which of these people\'s grips, meeting which situations in this world, produce it. That is what the writer will follow, so be concrete about these people and this situation, and don\'t write jokes, rules or adjectives.',
+    'Then work out, for "texture", where the tone the author asked for actually comes from in this book: which of these beings\' grips, meeting which situations in this world, produce it. That is what the writer will follow, so be concrete about these people and this situation, and don\'t write jokes, rules or adjectives.',
     "",
     `JSON:
 {
   "characters": [{
     "name": string, "role": string,
+    "kind": string,         // what sort of being it is, and how it perceives: its senses, what its world is made of, its scale of time
     "want": string,         // what they are after right now, concretely
     "grip": string,         // what they hold onto as "me" and must keep confirmed
     "fears": string,        // the loss, pain, blame or being-nobody they most avoid
@@ -21604,7 +21610,7 @@ function designPrompt(n) {
     "conscience": string,   // how much other people's pain registers with them
     "patterns": string,     // 2-4 concrete behaviours that fire under load, e.g. "answers a question with a joke first"
     "wrongAbout": string,   // one thing they are sure of that isn't so, or ""
-    "speech": string,       // how they talk, and how it narrows under load
+    "speech": string,       // how they talk or otherwise communicate (voice, body, sound, signal), and how it narrows under load
     "relations": string     // how they stand with the others, and the picture they hold of each
   }],
   "texture": string         // 4-8 sentences
@@ -21624,12 +21630,12 @@ function outlineContext(n) {
     n.texture && `WHERE THE TONE COMES FROM:${NL}${n.texture}`,
     n.referenceText && !n.charterVerbatim ? `REFERENCE MATERIAL:${NL}${n.referenceText.slice(0, 12e3)}` : "",
     n.premise && !n.charterVerbatim ? `THE AUTHOR'S BRIEF:${NL}${n.premise}` : "",
-    n.characters.length ? `THE PEOPLE:${NL}${n.characters.map(groundLine).join(NL)}` : "",
+    n.characters.length ? `THE CHARACTERS:${NL}${n.characters.map(groundLine).join(NL)}` : "",
   ]
     .filter(Boolean)
     .join(`${NL}${NL}`);
 }
-const PLOT_RULES = `Plan it the way a good novelist plans a book before writing it: situations that press on these particular people's grips, and what they do about it, in a world that works the way it works. Events follow from what people do, and the book builds to an ending that pays off the brief. Don't decide in advance who learns or softens; plan the pressure, not the lesson.`;
+const PLOT_RULES = `Plan it the way a good novelist plans a book before writing it: situations that press on these particular beings' grips, and what they do about it, in a world that works the way it works. Events follow from what they do, and the book builds to an ending that pays off the brief. Don't decide in advance who learns or softens; plan the pressure, not the lesson.`;
 function m0(n, a = !1) {
   return `${outlineContext(n)}
 
@@ -21688,7 +21694,7 @@ function _f(n, a, s) {
     open = n.bible.threads.filter((c) => c.status !== "resolved");
   return [
     m.summarized && n.bible.canon.length ? `FACTS FROM THE SUMMARIZED CHAPTERS:${NL}${bullets(canonFor(n, 50, a))}` : "",
-    peopleBlock(n, s, a.cast) && `WHERE THE PEOPLE ARE NOW, going into this chapter:${NL}${peopleBlock(n, s, a.cast)}`,
+    peopleBlock(n, s, a.cast) && `WHERE EACH CHARACTER IS NOW, going into this chapter:${NL}${peopleBlock(n, s, a.cast)}`,
     open.length ? `STORY THREADS STILL OPEN: ${open.map((c) => c.name).join("; ")}` : "",
     "",
     `NEXT: ${Ho(a, s, n.chapters.length || n.numChapters, n.targetWords)}`,
@@ -21714,7 +21720,7 @@ function mE(n, a, s, l) {
   const prev = s > 0 ? n.chapters[s - 1]?.state.final || "" : "",
     tail = prev ? prev.split(/\s+/).slice(-1200).join(" ") : "",
     pb = peopleBlock(n, s, a.cast);
-  return `${n.characters.length ? `THE PEOPLE:\n${n.characters.map(groundLine).join(NL)}\n\n` : ""}${n.texture ? `WHERE THE TONE COMES FROM: ${n.texture}\n\n` : ""}${tail ? `THE END OF THE PREVIOUS CHAPTER:\n${tail}\n\n` : ""}STYLE: ${n.styleGuide || "(not given)"}
+  return `${n.characters.length ? `THE CHARACTERS:\n${n.characters.map(groundLine).join(NL)}\n\n` : ""}${n.texture ? `WHERE THE TONE COMES FROM: ${n.texture}\n\n` : ""}${tail ? `THE END OF THE PREVIOUS CHAPTER:\n${tail}\n\n` : ""}STYLE: ${n.styleGuide || "(not given)"}
 
 THE PLAN FOR THIS CHAPTER:
 ${a.summary}
@@ -21735,7 +21741,7 @@ Read the draft as an editor would. Reply with this JSON:
   "exitDelivered": boolean,
   "continuityErrors": string[], // things that contradict the previous chapter or the facts. [] if none
   "characterBreaks": string[],  // up to 4 places where someone acts in a way that makes no sense for them or for what has happened so far. Quote the line. [] if none
-  "groundBreaks": string[],     // up to 4 places where people don't work the way described above: someone braced reads others accurately; a pattern stops firing because the scene turned sad or it was convenient; a cold character is warmed, or how they are made is explained as a wound; someone is freed or changed by being told about themselves; someone narrates their own inner workings; a letting-go with nothing built up to it, or one that turns them into someone new; the tone stated or performed instead of coming out of the people. Quote the line. [] if none
+  "groundBreaks": string[],     // up to 4 places where a being doesn't work the way described above: an animal or other non-human written as a human in a costume; someone braced reads others accurately; a pattern stops firing because the scene turned sad or it was convenient; a cold character is warmed, or how they are made is explained as a wound; someone is freed or changed by being told about themselves; someone narrates their own inner workings; a letting-go with nothing built up to it, or one that turns them into someone new; the tone stated or performed instead of coming out of the characters. Quote the line. [] if none
   "onTheNose": string[],        // up to 5 exact short quotes where a feeling or the meaning is stated outright. [] if none
   "dialogueIssues": string[],   // up to 3, only if true. [] if fine
   "styleBreaks": string[],      // up to 3 exact short quotes that don't fit the style. [] if none
@@ -22428,6 +22434,7 @@ Continue the chapter from exactly where it stops. Start with the very next chara
         need: t(s?.need) || void 0,
         lie: t(s?.lie) || void 0,
         secret: t(s?.secret) || void 0,
+        kind: t(s?.kind) || void 0,
         grip: t(s?.grip) || void 0,
         fears: t(s?.fears) || void 0,
         rest: t(s?.rest) || void 0,
@@ -22919,7 +22926,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
     l.entryContinuous || c.push("The opening doesn't follow on from the end of the previous chapter.");
     for (const d of l.continuityErrors) c.push(`Continuity: ${d}`);
     for (const d of l.characterBreaks || []) c.push(`Doesn't make sense: ${d}`);
-    for (const d of l.groundBreaks || []) c.push(`Not how people work: ${d}`);
+    for (const d of l.groundBreaks || []) c.push(`Not how beings work: ${d}`);
     f && !l.exitDelivered && c.push(`The plan ends the chapter here: ${s.exitHook}`);
     // Style notes alone never buy a full rewrite: the line fix handles them paragraph by paragraph.
     if (!c.length) return null;
@@ -34491,7 +34498,7 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
                 g.jsx("p", {
                   className: "text-[12px] text-vellum/45 leading-snug mb-2",
                   children:
-                    "Worked out by the planner from these people and this situation before writing. The writer follows it and never states it. Edit it and later chapters follow.",
+                    "Worked out by the planner from these characters and this situation before writing. The writer follows it and never states it. Edit it and later chapters follow.",
                 }),
                 g.jsx("textarea", {
                   className: "field !py-2 text-[13px] min-h-[96px]",
@@ -34509,12 +34516,12 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
                 g.jsxs("h3", {
                   className:
                     "flex items-center gap-2 text-[13px] font-semibold text-vellum/70 uppercase tracking-wider mb-1",
-                  children: [g.jsx(Jf, { size: 13 }), " The people"],
+                  children: [g.jsx(Jf, { size: 13 }), " The characters"],
                 }),
                 g.jsx("p", {
                   className: "text-[12px] text-vellum/45 leading-snug mb-2.5",
                   children:
-                    "Updated after every chapter: how tight each person is, what they're holding, who they misread, what they let go of, where they are and what they know. The writer gets this before each chapter; the editor flags anyone who stops working the way they work. Edit the notes and later chapters follow.",
+                    "Updated after every chapter: how tight each character is, what it's holding, who it misreads, what it let go of, where it is and what it knows. The writer gets this before each chapter; the editor flags any character that stops working the way it works. Edit the notes and later chapters follow.",
                 }),
                 g.jsx("div", {
                   className: "space-y-2",
@@ -34578,6 +34585,7 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
                                   children: [g.jsx("span", { className: "text-vellum/35", children: "Relationships: " }), E.rel.join("; ")],
                                 }),
                               [
+                                ["kind", "What it is, how it perceives"],
                                 ["want", "Wants"],
                                 ["grip", "Holds onto"],
                                 ["fears", "Most afraid of"],
@@ -34587,7 +34595,7 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
                                 ["conscience", "Others' pain"],
                                 ["patterns", "Patterns that fire"],
                                 ["wrongAbout", "Wrong about"],
-                                ["speech", "How they talk"],
+                                ["speech", "How it talks or communicates"],
                                 ["relations", "With the others"],
                               ].map(([C, M]) =>
                                 g.jsxs(

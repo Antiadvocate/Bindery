@@ -1,12 +1,7 @@
-# Bindery patch — September 29, 2026 (5): how people work
-The bundle is now index-aa7abc76.js.
+# Bindery patch — September 29, 2026 (6): any being that is aware
+The bundle is now index-dee44fc9.js.
 
-The writer had no understanding of people, so it fell back on its trained default: the clown with a sad heart, being seen as the cure, the monster as a hurt person, the cold mind warming up. That default is sentimental, which is why "hilarious, grimdark" came out neither.
-
-1. A ground text, "How people work", goes to the planner, the writer and the editor. It is the story sections of Weft's PHILOSOPHY.md: the grip, the body's resting point, the perception gate, the aperture, the lifecycle of a feeling, noticing and release, conscience, attachment under threat, being sure of someone, rooms. Added from Dzogchen, in plain words with no Buddhist terms: the grip that makes a self and a world; hope and fear across gain/loss, pleasure/pain, praise/blame, somebody/nobody; the charge and the urge that feeds it; stuck patterns as the same energy as their clear capacities; six usual ways of being stuck; the three ways a charge passes. It is sent once and read from cache.
-2. There are no genre or comedy rules. Before writing, the planner works out "where the tone comes from": which of these people's grips, meeting which situations, produce the tone the author asked for. The writer follows it and the planner writes it. It can be edited in the Bible.
-3. Character notes are built on the ground: what they want, what they hold onto, what they most fear, resting state, usual way of being stuck, what they do under threat, how much others' pain registers, patterns that fire, what they're wrong about, how they talk and how it narrows, and the picture they hold of the others. There is no pre-decided arc; what happens to them comes from what they meet.
-4. The outline plans pressure, not lessons. Each chapter says what presses on whom.
-5. After every chapter the record keeps each person's grip (open to breaking), what they're holding or retelling, who they misread and as what, which patterns fired, and what they let go of and how. The writer gets this for everyone going into the next chapter.
-6. The editor carries the ground and sends a chapter back when people stop working that way: someone braced reads others accurately; a pattern vanishes because the scene turned sad; a cold character is warmed or explained as a wound; someone is freed by being told about themselves; someone narrates their own inner workings; a release with nothing built up to it; the tone stated instead of arising.
+1. The ground text is now "How anything that is aware works". It covers people, animals, swarms, gods, ghosts and machines that know themselves. Each kind of being grips through what it has, and lives in the world its senses and needs make, at its own scale of time. It is written from inside that world, never as a human in a costume. Things that aren't aware don't grip; they are how the world appears to the beings that do.
+2. Character notes gain "what it is and how it perceives": its senses, what its world is made of, its scale of time. "How they talk" is now "how it talks or communicates" (voice, body, sound, signal).
+3. The editor also flags a non-human written as a human in a costume.
 
