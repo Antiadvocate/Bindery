@@ -30087,13 +30087,17 @@ function FE({ open: n, onClose: a, value: s, onPick: l, title: o }) {
     [d, m] = tt.useState(""),
     [p, x] = tt.useState("");
   tt.useEffect(() => {
-    !n ||
-      kf ||
+    if (!n) return;
+    if (kf) {
+      c(kf);
+      return;
+    }
+    (x(""),
       g1()
         .then((w) => {
           ((kf = w), c(w));
         })
-        .catch((w) => x(String(w.message || w)));
+        .catch((w) => x(String(w.message || w))));
   }, [n]);
   const v = tt.useMemo(() => {
     const w = d.trim().toLowerCase();
@@ -30740,6 +30744,31 @@ const nk = [
     "Cosmic horror",
     "Slipstream",
   ];
+function NumField({ value: n, min: a, max: s, onSet: l }) {
+  const [o, f] = tt.useState(String(n || ""));
+  tt.useEffect(() => {
+    f(String(n || ""));
+  }, [n]);
+  const commit = (v) => {
+    const x = Math.max(a, Math.min(s, Math.floor(+String(v).replace(/[^0-9]/g, "")) || a));
+    (l(x), f(String(x)));
+  };
+  return g.jsx("input", {
+    className: "field",
+    type: "text",
+    inputMode: "numeric",
+    pattern: "[0-9]*",
+    autoComplete: "off",
+    value: o,
+    onChange: (c) => {
+      const v = c.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+        x = Math.floor(+v);
+      (f(v), v && x >= a && x <= s && l(x));
+    },
+    onBlur: (c) => commit(c.target.value),
+    onKeyDown: (c) => c.key === "Enter" && c.target.blur(),
+  });
+}
 function ik({
   project: n,
   onChange: a,
@@ -30938,32 +30967,13 @@ function ik({
                   g.jsxs("div", {
                     children: [
                       g.jsx(Pt, { children: "Chapters" }),
-                      g.jsx("input", {
-                        className: "field",
-                        type: "number",
-                        inputMode: "numeric",
+                      g.jsx(NumField, {
+                        value: c.numChapters,
                         min: 1,
                         max: 200,
-                        value: c.numChapters || "",
-                        onChange: (y) =>
+                        onSet: (y) =>
                           a((b) => {
-                            b.numChapters =
-                              y.target.value === ""
-                                ? 0
-                                : Math.max(
-                                    0,
-                                    Math.min(
-                                      200,
-                                      Math.floor(+y.target.value) || 0,
-                                    ),
-                                  );
-                          }),
-                        onBlur: (y) =>
-                          a((b) => {
-                            b.numChapters = Math.max(
-                              1,
-                              Math.min(200, Math.floor(+y.target.value) || 1),
-                            );
+                            b.numChapters = y;
                           }),
                       }),
                     ],
@@ -30971,36 +30981,13 @@ function ik({
                   g.jsxs("div", {
                     children: [
                       g.jsx(Pt, { children: "Words / chapter" }),
-                      g.jsx("input", {
-                        className: "field",
-                        type: "number",
-                        inputMode: "numeric",
+                      g.jsx(NumField, {
+                        value: c.targetWords,
                         min: 100,
                         max: 12e3,
-                        step: 50,
-                        value: c.targetWords || "",
-                        onChange: (y) =>
+                        onSet: (y) =>
                           a((b) => {
-                            b.targetWords =
-                              y.target.value === ""
-                                ? 0
-                                : Math.max(
-                                    0,
-                                    Math.min(
-                                      12e3,
-                                      Math.floor(+y.target.value) || 0,
-                                    ),
-                                  );
-                          }),
-                        onBlur: (y) =>
-                          a((b) => {
-                            b.targetWords = Math.max(
-                              100,
-                              Math.min(
-                                12e3,
-                                Math.floor(+y.target.value) || 1e3,
-                              ),
-                            );
+                            b.targetWords = y;
                           }),
                       }),
                     ],
@@ -35485,6 +35472,19 @@ function kk() {
                     onSet: (W) =>
                       Y((St) => {
                         St.settings.fallbackModels = W;
+                      }),
+                  }),
+                  g.jsx(Pt, {
+                    hint: "Applies to every chapter not yet written. To change the number of chapters, use Re-architect outline on the Plan tab.",
+                    children: "Words per chapter",
+                  }),
+                  g.jsx(NumField, {
+                    value: I.targetWords,
+                    min: 100,
+                    max: 12e3,
+                    onSet: (W) =>
+                      Y((St) => {
+                        St.targetWords = W;
                       }),
                   }),
                   g.jsx(Pt, {
