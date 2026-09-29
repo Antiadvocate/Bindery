@@ -20292,7 +20292,7 @@ const eT = {
   j_ = {
     proseModel: "deepseek/deepseek-v3.2",
     editorModel: "deepseek/deepseek-v3.2",
-    architectModel: "deepseek/deepseek-v3.2",
+    architectModel: "",
     passes: "standard",
     maxRevisions: 1,
     thinking: "off",
@@ -20388,7 +20388,19 @@ function e0(n, a) {
       model: n.model,
       messages: [
         { role: "system", content: l },
-        { role: "user", content: n.user },
+        {
+          role: "user",
+          content: n.userPrefix?.length
+            ? /anthropic|claude/i.test(n.model)
+              ? [
+                  ...[].concat(n.userPrefix).map((t, i, all) =>
+                    i === all.length - 1 ? { type: "text", text: t, cache_control: { type: "ephemeral" } } : { type: "text", text: t },
+                  ),
+                  { type: "text", text: n.user },
+                ]
+              : [].concat(n.userPrefix).join("") + n.user
+            : n.user,
+        },
       ],
       stream: a,
       usage: { include: !0 },
@@ -20452,6 +20464,7 @@ class eh {
         return {
           text: p?.choices?.[0]?.message?.content ?? "",
           usage: n0(p?.usage),
+          finish: p?.choices?.[0]?.finish_reason || "",
         };
       } finally {
         (clearTimeout(d), a.signal?.removeEventListener("abort", c));
@@ -20468,6 +20481,7 @@ class eh {
       const d = new TextDecoder("utf-8");
       let m = "",
         p = "",
+        fin = "",
         x = { promptTokens: 0, completionTokens: 0, cost: 0 };
       try {
         for (;;) {
@@ -20502,13 +20516,15 @@ class eh {
                 `OpenRouter stream: ${E.error.message || "unknown error"}`,
               );
             const C = E.choices?.[0]?.delta?.content;
-            (C && ((p += C), a.onDelta(C, p)), E.usage && (x = n0(E.usage)));
+            (C && ((p += C), a.onDelta(C, p)),
+              E.choices?.[0]?.finish_reason && (fin = E.choices[0].finish_reason),
+              E.usage && (x = n0(E.usage)));
           }
         }
       } finally {
         c.releaseLock();
       }
-      return { text: p, usage: x };
+      return { text: p, usage: x, finish: fin };
     } finally {
       a.signal?.removeEventListener("abort", o);
     }
@@ -21065,6 +21081,7 @@ const castLine = (o) =>
     o.lie && `Wrongly believes: ${o.lie}.`,
     o.wound && `History: ${o.wound}.`,
     o.secret && `Hides: ${o.secret}.`,
+    o.abilities && `Can and can't do: ${o.abilities}.`,
     o.voice && `Comes across as: ${o.voice}.`,
     o.speech && `How they talk: ${o.speech}.`,
     o.relations && `Relationships: ${o.relations}.`,
@@ -21072,46 +21089,51 @@ const castLine = (o) =>
   ]
     .filter(Boolean)
     .join(" ");
-const WRITING_RULES = `HOW TO WRITE. These are the defaults for adult fiction. The style guide above overrides any of them: if it asks for a picture book, short sentences, named feelings, or an author's habits, do what it says.
-1. Write in scenes: people in a particular place at a particular time, doing and saying things. Summarize only stretches where nothing important happens, and keep those short.
-2. Use plain, exact words. Name the actual thing: the make of the car, what is on the plate, the name of the street. Pick the ordinary word over the impressive one. One exact detail is better than three general ones.
-3. People act on what they want right now and what they know. A character knows only what they have seen, been told, or can work out; they cannot know what happened in a scene they weren't in. They misread each other, change their minds, lie, get distracted, and are sometimes funny. Nobody behaves like a tool of the plot. When someone does something surprising, the reader should be able to see afterwards why they did it.
-4. Dialogue sounds like people talking. They interrupt, dodge, answer a different question, repeat themselves, trail off, and say ordinary things. Each person talks in their own way (see "How they talk" in the cast list); the reader should be able to tell who is speaking without the tag. When people share a scene, let them talk for as long as the conversation needs. Use "said" for most tags.
-5. Let the reader see feelings mostly through what people do and say. Naming a feeling plainly is fine when that is the clearest way. Do not use body parts as a stand-in for emotion (jaws tightening, breath catching, hearts hammering, stomachs dropping, knuckles whitening); one such line in a chapter is the limit.
-6. What happened stays happened. Injuries still hurt later. Money spent is gone. Promises are remembered. Time of day, weather, clothes and who is in the room stay consistent until the text changes them.
-7. Something is different by the end of the chapter: someone's situation, what they know, or how two people stand with each other.
-8. Do not explain a moment after showing it. Do not state the theme or the lesson. Do not end a paragraph or the chapter on a line that sums up the mood.
-9. Vary sentence length the way a person does without thinking about it. Do not stack three parallel phrases or three adjectives. Do not write "not X but Y", "not X, not Y, but Z", or "It wasn't X. It was Y." Use very few em dashes: commas, full stops and parentheses do the same work.
-10. Never use: tapestry, testament to, palpable, delve, ozone, unspoken, "the weight of" anything abstract, "hung in the air", "a beat passed", "for a long moment", "the silence stretched", "a breath she didn't know she was holding", "something shifted", "a flicker of" a feeling, "a smile that didn't reach his eyes", "the ghost of a smile", "more than she cared to admit", "in that moment", "for the first time in years", "somewhere, a dog barked". Characters don't use therapy words (processing, boundaries, validate, "I hear you", journey) unless they are the kind of person who would.
-11. Do not moralize and do not soften the story. If someone is cruel, they are cruel. If things go badly, they go badly. The characters do not all end up agreeing or learning the same lesson.`;
+const WRITING_RULES = `Write it the way a good novelist would: in scenes, in plain and specific prose, with people who talk like people and act on what they know and want. Keep everything consistent with what has already happened in the book.`;
 function S1(n) {
-  const s = n.undertow;
   return [
-    "You write a novel one chapter at a time. Each reply is the full text of one chapter and nothing else: no title, no heading, no notes, no word count, no comment before or after.",
-    `STYLE GUIDE. This decides who the book is for, the reading level, the vocabulary, the sentence length and the voice. It outranks everything else in this message.${NL}${n.styleGuide || "(None given. Work out the intended reader from the brief and the rules below, and write for that reader. A children's brief gets children's language.)"}`,
+    "You are writing a novel, one chapter at a time. Each reply is the text of one chapter and nothing else: no title, no heading, no notes.",
+    n.styleGuide && `STYLE: ${n.styleGuide}`,
     WRITING_RULES,
-    n.charter.length && `RULES OF THIS BOOK, from the author. Never break them.${NL}${numList(n.charter)}`,
-    n.premise &&
-      !n.charterVerbatim &&
-      `THE AUTHOR'S BRIEF, as they wrote it. When the rules above leave something open, follow this.${NL}${n.premise.slice(0, 9e3)}`,
-    s &&
-      [
-        "WHAT THE BOOK IS ABOUT. This is for you, not for the page. Never state it; let it come through in what people do.",
-        s.question && `The question the book keeps asking: ${s.question}`,
-        s.characters.length
-          ? `What the main characters get wrong, and what they actually need:${NL}${s.characters.map((o) => `- ${o.name} believes "${o.lie}" and needs ${o.need}`).join(NL)}`
-          : "",
-        s.ironies.length ? `Things the reader understands before the characters do:${NL}${bullets(s.ironies)}` : "",
-        s.motifs.length
-          ? `Recurring images. Use one only when it comes up naturally in the scene; most chapters need none, and never explain what it means:${NL}${s.motifs.map((o) => `- ${o.image}${o.arc ? `: ${o.arc}` : ""}`).join(NL)}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join(NL),
-    n.characters.length && `THE CAST${NL}${n.characters.map(castLine).join(NL)}`,
+    n.charter.length && `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
+    n.premise && !n.charterVerbatim && `THE AUTHOR'S BRIEF:${NL}${n.premise.slice(0, 9e3)}`,
+    n.characters.length &&
+      `MAIN CHARACTERS:${NL}${n.characters
+        .map((o) => [`- ${o.name}${o.role ? ` (${o.role})` : ""}`, o.want && `wants ${o.want}`, o.speech && `talks: ${o.speech}`].filter(Boolean).join("; "))
+        .join(NL)}`,
   ]
     .filter(Boolean)
     .join(`${NL}${NL}`);
+}
+function manuscript(n, s, budget = 6e4) {
+  const done = n.chapters
+    .slice(0, s)
+    .map((c, i) => ({ c, i }))
+    .filter((x) => x.c.state.final);
+  let used = 0,
+    from = done.length;
+  for (let k = done.length - 1; k >= 0; k--) {
+    const t = Math.ceil(Oe(done[k].c.state.final) * 1.4);
+    if (used + t > budget && k < done.length - 1) break;
+    ((used += t), (from = k));
+  }
+  const early = done.slice(0, from),
+    full = done.slice(from),
+    parts = [];
+  if (early.length) {
+    const sy = early.map(({ i }) => n.bible.synopses.find((y) => y.ch === i)).filter(Boolean);
+    parts.push(
+      `EARLIER CHAPTERS, IN SUMMARY:${NL}${[...(sy.length < early.length ? n.bible.actSummaries : []), ...sy.map((y) => `Ch ${y.ch + 1}: ${y.text}`)].join(NL)}`,
+    );
+  }
+  for (const { c, i } of full) parts.push(`CHAPTER ${i + 1}: ${c.title}${NL}${NL}${c.state.final.trim()}`);
+  return { text: parts.join(`${NL}${NL}`), parts, summarized: early.length > 0, count: done.length };
+}
+function bookPrefix(n, s) {
+  // One block per chapter, so a provider that caches by block (Claude) can reuse the previous
+  // chapter's cached prefix; the others cache the joined text by prefix anyway.
+  const m = manuscript(n, s);
+  return m.count ? [`THE BOOK SO FAR${NL}${NL}`, ...m.parts.map((p) => `${p}${NL}${NL}`), `=== END OF THE BOOK SO FAR ===${NL}${NL}`] : "";
 }
 function peopleNow(n, beforeCh) {
   const out = [];
@@ -21229,19 +21251,12 @@ function Rh(n, a, s, check) {
   );
 }
 function Ho(n, a, s, l) {
-  const pct = s > 1 ? Math.round((a / (s - 1)) * 100) : 100;
   return [
-    `CHAPTER ${a + 1} OF ${s}: "${n.title}" (${a === 0 ? "the opening" : a === s - 1 ? "the last chapter" : `about ${pct}% of the way through the book`})`,
-    `Point of view: ${n.pov || "as the style guide says"}. Place: ${n.location || "not fixed"}. When: ${n.timeframe || "not fixed"}.`,
-    n.cast.length ? `People in this chapter: ${n.cast.join(", ")}` : "",
-    `What happens: ${n.summary}`,
-    n.beats.length
-      ? `These events must all happen on the page, as scenes, not in summary. They will be checked one by one:${NL}${n.beats.map((o, f) => `B${f + 1}. ${o}`).join(NL)}`
-      : "",
-    n.turn ? `What is different by the end (show it, never say it): ${n.turn}` : "",
-    n.subtext ? `What the chapter is about underneath (never say it): ${n.subtext}` : "",
-    n.motif ? `An image that can come up if it fits naturally: ${n.motif}` : "",
-    `Where the chapter ends: ${n.exitHook || "where its events naturally stop. Not every chapter needs a cliffhanger."}`,
+    `CHAPTER ${a + 1} OF ${s}${n.title ? `: "${n.title}"` : ""}`,
+    [n.pov && `Point of view: ${n.pov}.`, n.location && `Place: ${n.location}.`, n.timeframe && `When: ${n.timeframe}.`].filter(Boolean).join(" "),
+    `The plan: ${n.summary}`,
+    n.beats.length ? n.beats.map((o) => `- ${o}`).join(NL) : "",
+    n.exitHook ? `Planned ending: ${n.exitHook}` : "",
     `Length: about ${l} words.`,
   ]
     .filter(Boolean)
@@ -21250,9 +21265,10 @@ function Ho(n, a, s, l) {
 function aheadBlock(n, s) {
   const later = n.chapters.slice(s + 1);
   if (!later.length) return "";
-  const near = later.slice(0, 3).map((c, i) => `- Ch ${s + i + 2} "${c.title}": ${c.summary}`),
-    far = later.slice(3).map((c, i) => `- Ch ${s + i + 5} "${c.title}"`);
-  return `WHAT COMES LATER, so you can set it up. None of this happens in this chapter; do not reach ahead or resolve it early:${NL}${[...near, ...far].join(NL)}`;
+  return `WHERE THE BOOK IS HEADING AFTER THIS CHAPTER (don't get there early):${NL}${later
+    .slice(0, 3)
+    .map((c, i) => `- Ch ${s + i + 2}: ${c.summary}`)
+    .join(NL)}${later.length > 3 ? `${NL}- then ${later.length - 3} more chapter${later.length - 3 === 1 ? "" : "s"}.` : ""}`;
 }
 function nE(n, a = 700) {
   const s = n.trim();
@@ -21285,9 +21301,7 @@ function sE(n) {
 function rE(n, a) {
   if (a !== n.numChapters - 1 && a !== n.chapters.length - 1) return "";
   const s = n.bible.threads.filter((l) => l.status !== "resolved");
-  return s.length
-    ? `${NL}THIS IS THE LAST CHAPTER. These threads are still open. Each one has to be resolved, turned on its head, or deliberately left open in a way the reader can see is on purpose: ${s.map((l) => l.name).join("; ")}.`
-    : "";
+  return `This is the last chapter.${s.length ? ` Threads still open: ${s.map((l) => l.name).join("; ")}.` : ""}`;
 }
 function lo(n, a, s) {
   ((n.bible.exit = a || void 0), (n.bible.lastWords = nE(s)));
@@ -21300,6 +21314,11 @@ function oo(n, a) {
   if (!s) return !0;
   const head = unquote(s.slice(0, 600)).slice(0, 320);
   return d0.test(head) ? !0 : Oe(s) < Math.max(120, a * 0.25) && d0.test(unquote(s));
+}
+function cutOff(t, finish) {
+  if (finish === "length" || finish === "max_tokens") return !0;
+  const e = String(t || "").trim();
+  return e.length > 200 && !/[.!?…"”’')\]*_—–-]$/.test(e);
 }
 function cleanProse(t) {
   let s = String(t || "")
@@ -21407,7 +21426,7 @@ function wornPhrases(n, beforeCh) {
   texts.forEach((t, ci) => {
     for (const sent of t.toLowerCase().replace(/[’]/g, "'").split(/[.!?;:"“”()\n—–]+/)) {
     const w = sent.replace(/[^a-z'\s]/g, " ").split(/\s+/).filter(Boolean);
-    for (const k of [3, 4])
+    for (const k of [3, 4, 5])
       for (let i = 0; i + k <= w.length; i++) {
         const g = w.slice(i, i + k);
         if (g.filter((x) => !STOP.has(x)).length < 2 || g.some((x) => names.has(x))) continue;
@@ -21419,23 +21438,31 @@ function wornPhrases(n, beforeCh) {
       }
     }
   });
-  const four = new Map(),
-    three = [];
+  const three = [],
+    byK = { 4: new Map(), 5: new Map() };
   for (const [g, e] of tally)
-    e.k === 4 ? e.n >= 3 && e.ch.size >= 2 && four.set(g, e.n) : e.n >= 5 && e.ch.size >= 3 && three.push([g, e.n]);
-  const head = (g) => g.split(" ").slice(0, 3).join(" "),
-    tail = (g) => g.split(" ").slice(1).join(" "),
-    byHead = new Map();
-  for (const g of four.keys()) byHead.has(head(g)) || byHead.set(head(g), g);
-  const tails = new Set([...four.keys()].map(tail)),
-    spans = [];
-  for (const [g, c] of four) {
-    if (tails.has(head(g))) continue;
-    let w = g.split(" "),
-      cur = g,
-      seen = new Set([g]);
-    for (let nx; (nx = byHead.get(tail(cur))) && !seen.has(nx); ) (seen.add(nx), w.push(nx.split(" ")[3]), (cur = nx));
-    spans.push([w.slice(0, 10).join(" ") + (w.length > 10 ? "…" : ""), c]);
+    e.k === 5
+      ? e.n >= 2 && e.ch.size >= 2 && byK[5].set(g, e.n + 1)
+      : e.k === 4
+        ? e.n >= 3 && e.ch.size >= 2 && byK[4].set(g, e.n)
+        : e.n >= 5 && e.ch.size >= 3 && three.push([g, e.n]);
+  const spans = [];
+  for (const k of [5, 4]) {
+    const grams = byK[k],
+      head = (g) => g.split(" ").slice(0, k - 1).join(" "),
+      tail = (g) => g.split(" ").slice(1).join(" "),
+      byHead = new Map();
+    for (const g of grams.keys()) byHead.has(head(g)) || byHead.set(head(g), g);
+    const tails = new Set([...grams.keys()].map(tail));
+    for (const [g, c] of grams) {
+      if (tails.has(head(g))) continue;
+      let w = g.split(" "),
+        cur = g,
+        seen = new Set([g]);
+      for (let nx; (nx = byHead.get(tail(cur))) && !seen.has(nx); ) (seen.add(nx), w.push(nx.split(" ")[k - 1]), (cur = nx));
+      const span = w.slice(0, 10).join(" ") + (w.length > 10 ? "…" : "");
+      spans.some(([x]) => x.replace(/…$/, "").includes(g) || span.includes(x.replace(/…$/, ""))) || spans.push([span, c]);
+    }
   }
   for (const [g, c] of three) spans.some(([x]) => x.includes(g)) || spans.push([g, c]);
   return spans
@@ -21496,113 +21523,73 @@ Reply with this JSON:
 }`;
 }
 function designSystem() {
-  return "You create the main characters of a novel before it is outlined, so that the plot can come out of who they are. Reply with a JSON object only.";
+  return "You are about to write a novel and are making notes on its main characters first. Reply with a JSON object only.";
 }
 function designPrompt(n) {
   const user = n.characters.filter((c) => c.name.trim());
   return [
-    `RULES OF THE BOOK:${NL}${numList(n.charter)}`,
-    `STYLE: ${n.styleGuide || "(not given)"}`,
+    `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
     n.premise && !n.charterVerbatim ? `THE AUTHOR'S BRIEF:${NL}${n.premise.slice(0, 12e3)}` : "",
-    n.referenceText ? `REFERENCE MATERIAL (its facts hold):${NL}${n.referenceText.slice(0, 12e3)}` : "",
+    n.referenceText ? `REFERENCE MATERIAL:${NL}${n.referenceText.slice(0, 12e3)}` : "",
     user.length
-      ? `CHARACTERS THE AUTHOR HAS ALREADY DECIDED ON. Keep every one, with the same name, and keep everything the author wrote about them; fill in what's missing:${NL}${user.map(castLine).join(NL)}`
+      ? `CHARACTERS THE AUTHOR HAS ALREADY WRITTEN DOWN (keep them, same names, and keep what the author said):${NL}${user.map((c) => `- ${c.name}${c.role ? ` (${c.role})` : ""}${c.want ? `: wants ${c.want}` : ""}${c.speech ? `; talks: ${c.speech}` : ""}`).join(NL)}`
       : "",
     "",
-    `Create the ${user.length ? "rest of the " : ""}main cast (3 to 8 people in total, fewer for a very short or children's book) and say what the book is about underneath. Guidelines:
-- Give the main people wants that pull against each other, so the conflict comes from them and not from outside events.
-- Anyone who opposes the protagonist has reasons that make sense to them.
-- Avoid stock types (the wise mentor, the plucky orphan, the cold billionaire, the quirky best friend) unless the brief asks for one.
-- Choose names that fit the setting, era and the characters' backgrounds. Do not use these overused names unless the author did: Elara, Lyra, Kael, Seraphina, Aria, Zephyr, Thorne, Voss, Vance, Sterling, Silas, Kira, Sarah Chen, Marcus Chen, Dr. Aris.
-- "speech" must be concrete enough that two characters could never be mixed up: how long their sentences are, the words they use and avoid, verbal habits, what they do when cornered.
-- Keep the theme to what this material is actually about. No stock morals.`,
+    "Describe the main characters of this book (3 to 8), the way you would in your own notes before writing it. If a character comes from an existing film, book or game, describe them as they are there. Invented characters get names that fit the setting.",
     "",
     `JSON:
 {
   "characters": [{
     "name": string, "role": string,
-    "want": string,       // something concrete they are trying to get or do
-    "need": string,       // what they actually need, which they would deny
-    "lie": string,        // the wrong belief that drives what they do
-    "wound": string,      // the past event behind that belief
-    "secret": string,     // something they hide, or ""
-    "voice": string,      // how they come across to other people
+    "want": string,       // what they are after in this story
+    "voice": string,      // what they are like
     "speech": string,     // how they talk
-    "relations": string,  // how they stand with the other main characters
-    "arc": string         // where they end up by the last chapter
-  }],
-  "theme": {
-    "question": string,   // the question the story keeps asking, which has no easy answer
-    "ironies": string[],  // 1-3 things the reader will understand before the characters do
-    "motifs": [{ "image": string, "arc": string }]   // 0-3 concrete objects or places from this world that can recur; "arc" is how their meaning changes
-  }
+    "relations": string,  // how they stand with the others
+    "arc": string         // where they end up
+  }]
 }`,
   ]
     .filter((x) => x !== "")
     .join(NL);
 }
 function Tf(n) {
-  return "You outline novels chapter by chapter. You follow the author's rules exactly and never add rules that contradict them. Reply with a JSON object only.";
+  return "You are about to write a novel and are planning it chapter by chapter first. Reply with a JSON object only.";
 }
 function outlineContext(n) {
   return [
-    `RULES OF THE BOOK (never break these):${NL}${numList(n.charter)}`,
-    `STYLE: ${n.styleGuide || "(not given)"}`,
-    n.referenceText && !n.charterVerbatim ? `REFERENCE MATERIAL (its facts hold):${NL}${n.referenceText.slice(0, 12e3)}` : "",
-    n.premise && !n.charterVerbatim ? `THE AUTHOR'S BRIEF (the rules above condense it; where they differ, the brief wins):${NL}${n.premise}` : "",
-    n.characters.length ? `THE CAST (use these exact names):${NL}${n.characters.map(castLine).join(NL)}` : "",
-    n.undertow
-      ? `WHAT THE BOOK IS ABOUT UNDERNEATH: ${n.undertow.question}${n.undertow.motifs.length ? `${NL}Images that can recur: ${n.undertow.motifs.map((s) => s.image).join("; ")}` : ""}`
+    `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
+    n.styleGuide && `STYLE: ${n.styleGuide}`,
+    n.referenceText && !n.charterVerbatim ? `REFERENCE MATERIAL:${NL}${n.referenceText.slice(0, 12e3)}` : "",
+    n.premise && !n.charterVerbatim ? `THE AUTHOR'S BRIEF:${NL}${n.premise}` : "",
+    n.characters.length
+      ? `CHARACTERS:${NL}${n.characters.map((c) => `- ${c.name}${c.role ? ` (${c.role})` : ""}${c.want ? `: wants ${c.want}` : ""}${c.voice ? `. ${c.voice}` : ""}`).join(NL)}`
       : "",
   ]
     .filter(Boolean)
     .join(`${NL}${NL}`);
 }
-const PLOT_RULES = `What the plan as a whole has to do:
-- Events happen because of earlier events, mostly because someone chose to do something. No lucky coincidence gets anyone out of trouble.
-- The pressure on the main characters builds. Something big changes about a quarter of the way in, again in the middle, and again about three quarters in. The biggest confrontation comes near the end, and the last chapter shows what it cost.
-- Main characters want something in every chapter they are in. Sometimes they get it and it makes things worse.
-- Things set up early pay off later. Every thread you open is either paid off or visibly left open by the end.
-- Each chapter's opening follows from the previous chapter's ending.
-- Two chapters in a row don't do the same job (another argument, another chase) unless the second one changes something the first didn't.
-- The ending comes out of what the characters did. Nobody is rescued by luck or by someone new.
-- Mix chapter endings: some stop on a question, some on a decision, some on a quiet moment. Not every chapter ends on a cliffhanger.`;
+const PLOT_RULES = `Plan it the way a good novelist plans a book before writing it: a story that makes sense in this world with these people, where events follow from what the characters do, building to an ending that pays off the brief.`;
 function m0(n, a = !1) {
   return `${outlineContext(n)}
 
-TASK: Plan EXACTLY ${n.numChapters} chapters.
-
 ${PLOT_RULES}
 
+Plan EXACTLY ${n.numChapters} chapters. The plan is a guide for the writer, not a script: keep it to what happens.
+
 For each chapter:
-- "title": plain and specific to what happens in it.
-- "summary": ${a ? "up to 20 words." : "2-3 sentences of what happens."}
-- "beats": ${a ? "2-3 short events." : "3-6 concrete events that visibly happen on the page, in order."}
-- "entryHook": how the chapter opens, following from the previous chapter's exitHook (chapter 1: how the book opens).
-- "exitHook": where the chapter stops. The next chapter's entryHook picks it up.
-- "pov", "location", "timeframe", "cast" (exact names from the cast list; you may add minor characters by name).
-- "tension": 1-10. Vary it across the book and build toward the climax.${
-    a
-      ? ""
-      : `
-- "turn": what is different for the point-of-view character by the end (for example "trusts him → knows he lied").
-- "subtext": one sentence on what the chapter is about underneath its events.
-- "motif": "" for most chapters. Only name one of the recurring images if it belongs in this chapter.`
-  }
-${a ? "\nThis is a short book. Keep every field short and do not pad.\n" : ""}
-Also list:
-- "threads": ${a ? "0-3" : "2-6"} story threads (mysteries, promises, conflicts, relationships) that run across chapters, each with the chapter number where it pays off.
-- "newCharacters": ${n.characters.length ? "minor characters the plan needs who are not in the cast list, or []." : "the main characters (3-7), since no cast was given: give each a name that fits the setting, a role, a concrete want and how they talk."}
+- "title"
+- "summary": ${a ? "up to 20 words." : "2-3 sentences: what happens."}
+- "beats": ${a ? "1-3" : "2-5"} main things that happen, in order.
+- "entryHook": how it opens. "exitHook": where it stops.
+- "pov", "location", "timeframe", "cast" (names), "tension" (1-10).
+
+Also:
+- "threads": the story threads that run across chapters, with the chapter number where each pays off.
+- "newCharacters": ${n.characters.length ? "anyone else the plan needs who isn't listed above, or []." : "the main characters, since none are listed: name, role, want, how they talk."}
 
 Output JSON:
 {
-  "chapters": [{
-    "title": string, "summary": string, "beats": string[],
-    "entryHook": string, "exitHook": string,
-    "pov": string, "location": string, "timeframe": string,
-    "cast": string[], "tension": number${a ? "" : `,
-    "turn": string, "subtext": string, "motif": string`}
-  }],
+  "chapters": [{ "title": string, "summary": string, "beats": string[], "entryHook": string, "exitHook": string, "pov": string, "location": string, "timeframe": string, "cast": string[], "tension": number }],
   "threads": [{ "name": string, "note": string, "payoff": number }],
   "newCharacters": [{ "name": string, "role": string, "want": string, "speech": string }]
 }`;
@@ -21634,104 +21621,84 @@ function cs(n) {
   return S1(n);
 }
 function _f(n, a, s) {
-  const worn = wornPhrases(n, s);
+  const m = manuscript(n, s),
+    worn = wornPhrases(n, s),
+    open = n.bible.threads.filter((c) => c.status !== "resolved");
   return [
-    "=== THE STORY SO FAR ===",
-    eE(n, s, a.cast, a),
+    m.summarized && n.bible.canon.length ? `FACTS FROM THE SUMMARIZED CHAPTERS:${NL}${bullets(canonFor(n, 50, a))}` : "",
+    m.summarized ? peopleBlock(n, s, a.cast) && `WHERE THE CHARACTERS STAND:${NL}${peopleBlock(n, s, a.cast)}` : "",
+    open.length ? `STORY THREADS STILL OPEN: ${open.map((c) => c.name).join("; ")}` : "",
     "",
-    "=== WHERE THIS CHAPTER PICKS UP ===",
-    Rh(n, a, s),
-    "",
-    "=== THIS CHAPTER'S PLAN ===",
-    Ho(a, s, n.chapters.length || n.numChapters, n.targetWords),
+    `NEXT: ${Ho(a, s, n.chapters.length || n.numChapters, n.targetWords)}`,
+    s > 0
+      ? "The plan was written before the book was started. Where the story so far has gone differently, follow the story and keep it making sense; the plan only says roughly where things go."
+      : "",
     rE(n, s),
     aheadBlock(n, s),
-    worn.length ? `${NL}PHRASES THIS BOOK HAS ALREADY USED TOO OFTEN. Don't use them again: ${worn.map((w) => `"${w}"`).join(", ")}` : "",
-    n.voiceLock && (s > 0 || n.voiceSample)
-      ? vlAuto(n)
-        ? `${NL}A PASSAGE FROM CHAPTER 1, to keep the voice consistent. Match its sentence rhythm and register; do not reuse its images or phrases:${NL}«${n.voiceLock}»`
-        : `${NL}THE AUTHOR'S VOICE, distilled from their sample. Write this way:${NL}${n.voiceLock}`
-      : "",
+    worn.length ? `${NL}Phrases the book has already repeated; don't use them again: ${worn.map((w) => `"${w}"`).join(", ")}` : "",
+    n.voiceLock && !vlAuto(n) ? `${NL}THE AUTHOR'S VOICE:${NL}${n.voiceLock}` : "",
     "",
-    `Write chapter ${s + 1} now: the prose only, in scenes, from its first line to its last.`,
+    s === 0 ? "Write chapter 1, the opening of the book." : `Write chapter ${s + 1}. It continues directly from the end of chapter ${s}.`,
   ]
-    .filter((l) => l !== "")
+    .filter((l) => l !== "" && l !== !1)
     .join(NL);
 }
 function dE() {
-  return "You check a novel chapter against its plan and the book's records. Be strict and literal: a planned event counts only if it actually happens in the text. Report only real problems. Reply with a JSON object only.";
+  return "You are an editor reading a new chapter of a novel against what came before it. Report only real problems a reader would notice. Reply with a JSON object only.";
 }
 function mE(n, a, s, l) {
-  const pb = peopleBlock(n, s, a.cast);
-  return `${Rh(n, a, s, !0)}
+  const prev = s > 0 ? n.chapters[s - 1]?.state.final || "" : "",
+    tail = prev ? prev.split(/\s+/).slice(-1200).join(" ") : "",
+    pb = peopleBlock(n, s, a.cast);
+  return `${tail ? `THE END OF THE PREVIOUS CHAPTER:\n${tail}\n\n` : ""}STYLE: ${n.styleGuide || "(not given)"}
 
-STYLE GUIDE (the draft must fit its audience and reading level):
-${n.styleGuide || "(none; judge the audience from the brief and the chapter)"}
-
-PLANNED EVENTS:
+THE PLAN FOR THIS CHAPTER:
+${a.summary}
 ${a.beats.map((o, f) => `B${f + 1}. ${o}`).join(NL)}
+Planned ending: ${a.exitHook || "(none)"}
 
-WHERE THE CHAPTER SHOULD END: ${a.exitHook || "(not specified)"}
-
-ESTABLISHED FACTS (flag contradictions):
+ESTABLISHED FACTS:
 ${bullets(canonFor(n, 60, a)) || "(none yet)"}
-${pb ? `\nWHERE EACH PERSON STOOD BEFORE THIS CHAPTER (flag anyone who knows something they couldn't know, forgets something important that happened to them, or acts against their established character with no reason shown):\n${pb}\n` : ""}
-CAST AND HOW EACH ONE TALKS:
-${n.characters.map((c) => `- ${c.name}: ${c.speech || c.voice || "(no notes)"}`).join(NL) || "(none)"}
-
+${pb ? `\nWHERE THE CHARACTERS STOOD BEFORE THIS CHAPTER:\n${pb}\n` : ""}
 === DRAFT OF CHAPTER ${s + 1} ===
 ${l}
 === END OF DRAFT ===
 
-Reply with this JSON:
+Read the draft as an editor would. Reply with this JSON:
 {
-  "beats": [{ "i": number, "covered": boolean, "note": string }],   // one per planned event; note only when not covered
-  "entryContinuous": boolean,   // does the opening follow from how the previous chapter ended?
-  "turned": boolean,            // is the point-of-view character's situation or understanding different at the end?
-  "exitDelivered": boolean,     // does it end where it should?
-  "continuityErrors": string[], // contradictions of the facts or of the previous chapter's ending. [] if none
-  "characterBreaks": string[],  // up to 4: someone knows what they couldn't, forgets what happened to them, or acts out of character with no reason shown. Name who and quote the line. [] if none
-  "onTheNose": string[],        // up to 5 exact quotes (12 words or fewer) where a character or the narrator states a feeling, the theme or the lesson outright. [] if none
-  "dialogueIssues": string[],   // up to 3, only if true: "every line is a short loaded one-liner", "X and Y sound the same", "people share scenes but barely talk". [] if fine
-  "styleBreaks": string[],      // up to 3 exact quotes (12 words or fewer) that break the style guide: wrong reading level, wrong register, or phrasing that sounds machine-written. [] if none
-  "notes": string               // if anything above failed: short, specific instructions for fixing it. Otherwise ""
+  "beats": [{ "i": number, "covered": boolean, "note": string }],   // one per planned beat
+  "entryContinuous": boolean,   // does it follow on from the end of the previous chapter without a gap the reader can't account for?
+  "exitDelivered": boolean,
+  "continuityErrors": string[], // things that contradict the previous chapter or the facts. [] if none
+  "characterBreaks": string[],  // up to 4 places where someone acts in a way that makes no sense for them or for what has happened so far. Quote the line. [] if none
+  "onTheNose": string[],        // up to 5 exact short quotes where a feeling or the meaning is stated outright. [] if none
+  "dialogueIssues": string[],   // up to 3, only if true. [] if fine
+  "styleBreaks": string[],      // up to 3 exact short quotes that don't fit the style. [] if none
+  "notes": string               // if something above failed: what to fix. Otherwise ""
 }`;
 }
 function pE(n, a, s, l, o) {
   return [
-    "=== THE STORY SO FAR ===",
-    eE(n, s, a.cast, a),
+    `THE PLAN FOR THIS CHAPTER:${NL}${Ho(a, s, n.chapters.length || n.numChapters, n.targetWords)}`,
     "",
-    "=== WHERE THIS CHAPTER PICKS UP ===",
-    Rh(n, a, s),
-    "",
-    "=== THIS CHAPTER'S PLAN ===",
-    Ho(a, s, n.chapters.length || n.numChapters, n.targetWords),
-    "",
-    "=== THE CURRENT DRAFT ===",
+    `=== YOUR DRAFT OF CHAPTER ${s + 1} ===`,
     l,
     "",
-    "=== PROBLEMS AN EDITOR FOUND. Fix every one without breaking anything else ===",
+    "=== AN EDITOR'S NOTES ===",
     o,
     "",
-    "Write the whole chapter again with these problems fixed. Keep everything that already works, including the events nobody flagged. Prose only: no notes, no heading.",
+    "Write the chapter again with these fixed, keeping what works. Only the chapter text.",
   ].join(NL);
 }
 function gE(n, a, s, l) {
   const o = Oe(l);
   return [
-    "=== WHERE THIS CHAPTER PICKS UP ===",
-    Rh(n, a, s),
+    `THE PLAN FOR THIS CHAPTER:${NL}${Ho(a, s, n.chapters.length || n.numChapters, n.targetWords)}`,
     "",
-    "=== THIS CHAPTER'S PLAN ===",
-    Ho(a, s, n.chapters.length || n.numChapters, n.targetWords),
-    "",
-    `This draft came out at ${o} words; the target is about ${n.targetWords}. Make it longer by playing the existing scenes out more fully: more of what people say and do, more of the place, the moments in between. Do not add new plot events, and keep the ending where it is.`,
-    "",
-    "=== THE DRAFT ===",
+    `=== YOUR DRAFT OF CHAPTER ${s + 1} (${o} words; the target is about ${n.targetWords}) ===`,
     l,
     "",
-    "Write the whole chapter again at full length. Prose only.",
+    "Write the chapter again at full length: let the scenes play out more fully, without adding new plot and keeping the same ending. Only the chapter text.",
   ].join(NL);
 }
 function co() {
@@ -22194,6 +22161,7 @@ function NE(n, a) {
   }
   return n;
 }
+const planModel = (a) => a.settings.architectModel || a.settings.proseModel;
 const xr = (n) => Math.max(1200, Math.min(16e3, Math.round(n)));
 const fallbacksOf = (a) =>
   (a.settings.fallbackModels || [])
@@ -22284,28 +22252,51 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
       : new Error(`${s} failed after 2 attempts. Try a different architect/editor model.`);
   }
   async streamCall(a, s, l, o, f, c, d) {
-    this.guard(a);
-    const m = this.signal(),
-      p = await i0(
-        () =>
-          this.caller.chat({
-            model: l,
-            system: o,
-            user: f,
-            label: s,
-            maxTokens: c,
-            temperature: a.settings.temperature,
-            ...this.opts(a),
-            signal: m,
-            onDelta: (x, v) => d(v),
-          }),
-        3,
-        m,
-      );
-    return (this.track(a, s, l, p.usage), cleanProse(p.text));
+    let text = "";
+    const prefix = typeof f == "object" ? f.prefix : "";
+    f = typeof f == "object" ? f.user : f;
+    // A chapter that stops because it hit the output limit (or stops mid-sentence) is continued
+    // from its last word instead of being accepted as finished. Up to two continuations.
+    for (let k = 0; k < 3; k++) {
+      this.guard(a);
+      const m = this.signal(),
+        head = text,
+        user = k
+          ? `${f}
+
+=== WHAT YOU HAVE WRITTEN OF THIS CHAPTER SO FAR. It was cut off before the end ===
+${text}
+=== (cut off here) ===
+
+Continue the chapter from exactly where it stops. Start with the very next characters, including the rest of any unfinished word or sentence, and repeat nothing. Then write the rest of the chapter as planned, up to its planned ending.`
+          : f,
+        p = await i0(
+          () =>
+            this.caller.chat({
+              model: l,
+              system: o,
+              user,
+              userPrefix: prefix,
+              label: k ? `${s} (continued)` : s,
+              maxTokens: c,
+              temperature: a.settings.temperature,
+              ...this.opts(a),
+              signal: m,
+              onDelta: (x, v) => d(head + v),
+            }),
+          3,
+          m,
+        );
+      this.track(a, k ? `${s} (continued)` : s, l, p.usage);
+      let piece = p.text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+      k && (piece = piece.replace(/^\s*=+[^\n]*\n/, ""));
+      text = k ? head + (/\s$/.test(head) || /^[\s,.;:!?…’'”")\]-]/.test(piece) || /[—–-]$/.test(head) ? "" : /[A-Za-z]$/.test(head) && /^[a-z]/.test(piece) ? "" : " ") + piece.replace(/^\n+/, /[.!?…"”’)]$/.test(head.trim()) ? "\n\n" : "") : piece;
+      if (!piece.trim() || !cutOff(text, p.finish) || oo(text, 50)) break;
+    }
+    return cleanProse(text);
   }
   async buildCharter(a) {
-    const s = a.settings.architectModel;
+    const s = planModel(a);
     let l;
     try {
       l = await this.jsonCall(a, "Charter", s, oE(), cE(a), 2600, (d) => Array.isArray(d?.charter) || typeof d?.styleGuide == "string", {
@@ -22366,6 +22357,7 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
         need: t(s?.need) || void 0,
         lie: t(s?.lie) || void 0,
         secret: t(s?.secret) || void 0,
+        abilities: t(s?.abilities) || void 0,
         relations: t(s?.relations) || void 0,
       }))
       .filter((s) => s.name);
@@ -22382,11 +22374,11 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
     a.characters = out;
   }
   async designStory(a) {
-    const l = await this.jsonCall(a, "Cast & theme", a.settings.architectModel, uE(), fE(a), 3600, (d) => Array.isArray(d?.characters), {
+    const l = await this.jsonCall(a, "Cast", planModel(a), uE(), fE(a), 3e3, (d) => Array.isArray(d?.characters), {
       temperature: 0.7,
     });
     this.mergeCast(a, this.normalizeCharacters(l?.characters));
-    const th = l?.theme || {},
+    const th = {},
       o = {
         question: Rt(th.question),
         motifs: rn(th.motifs)
@@ -22395,7 +22387,7 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
         ironies: Ie(th.ironies),
         characters: a.characters.filter((c) => c.lie && c.need).map((c) => ({ name: c.name, lie: c.lie, need: c.need })),
       };
-    ((a.undertow = o.question || o.characters.length ? o : void 0), this.emit(a));
+    this.emit(a);
   }
   async buildOutline(a) {
     this.running = !0;
@@ -22411,7 +22403,7 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
             o = Ie(l?.laws);
           o.length && ((a.voiceLock = o.map((x) => `- ${x}`).join(NL)), (a.voiceLockAuto = !1));
         } catch {}
-      const s = a.settings.architectModel,
+      const s = planModel(a),
         l = a.targetWords <= 700,
         o = l ? 200 : 820;
       if (a.numChapters <= (l ? 24 : 14)) {
@@ -22631,14 +22623,15 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       o = l.state,
       f = a.settings.proseModel,
       c = a.settings.editorModel,
-      d = xr(a.targetWords * 2 + 600);
+      d = xr(a.targetWords * 3 + 2500),
+      pre = bookPrefix(a, s);
     try {
       const m = !!o.draft.trim() && o.draftDone !== !1;
       if (!o.final && !m) {
         (this.setStage(a, s, "drafting"), (o.draft = ""), (o.draftDone = !1), (o.lineFixed = !1), (o.polished = !1));
         const v = (y) => !y.trim() || oo(y, a.targetWords),
           w = fallbacksOf(a);
-        let S = await this.streamCall(a, `Ch ${s + 1} · draft`, f, cs(a), _f(a, l, s), d, (y) => {
+        let S = await this.streamCall(a, `Ch ${s + 1} · draft`, f, cs(a), { prefix: pre, user: _f(a, l, s) }, d, (y) => {
             ((o.draft = y), this.emit(a, !1));
           }),
           k = f;
@@ -22647,7 +22640,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
           for (let b = 0; b < w.length; b++) {
             if (!this.running) return;
             ((o.draft = ""), this.emit(a));
-            const E = await this.streamCall(a, `Ch ${s + 1} · draft (fallback ${b + 1})`, w[b], cs(a), _f(a, l, s), d, (C) => {
+            const E = await this.streamCall(a, `Ch ${s + 1} · draft (fallback ${b + 1})`, w[b], cs(a), { prefix: pre, user: _f(a, l, s) }, d, (C) => {
               ((o.draft = C), this.emit(a, !1));
             }).catch((C) => {
               if (/Paused|abort/i.test(String(C?.message || C))) throw C;
@@ -22673,7 +22666,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       if (a.settings.extendShortChapters && !o.final && !o.extended && Oe(o.draft) < a.targetWords * 0.62 && a.targetWords >= 900) {
         this.setStage(a, s, "extending");
         const prev = o.draft,
-          v = await this.streamCall(a, `Ch ${s + 1} · extend`, o.wroteWith || f, cs(a), gE(a, l, s, o.draft), d, (w) => {
+          v = await this.streamCall(a, `Ch ${s + 1} · extend`, o.wroteWith || f, cs(a), { prefix: pre, user: gE(a, l, s, o.draft) }, d, (w) => {
             ((o.draft = w), this.emit(a, !1));
           });
         ((o.draft = Oe(v) > Oe(prev) && !oo(v, a.targetWords) ? v : prev), (o.extended = !0), this.emit(a));
@@ -22713,7 +22706,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
               ((o.fbRedrafts = b + 1), this.setStage(a, s, "drafting"));
               const C = o.draft;
               o.draft = "";
-              const M = await this.streamCall(a, `Ch ${s + 1} · redraft (fallback ${b + 1})`, E, cs(a), _f(a, l, s), d, (z) => {
+              const M = await this.streamCall(a, `Ch ${s + 1} · redraft (fallback ${b + 1})`, E, cs(a), { prefix: pre, user: _f(a, l, s) }, d, (z) => {
                 ((o.draft = z), this.emit(a, !1));
               }).catch((z) => {
                 if (/Paused|abort/i.test(String(z?.message || z))) throw z;
@@ -22740,7 +22733,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
           ((o.notes = S), (o.revisions += 1), this.setStage(a, s, "revising"));
           const k = o.draft;
           try {
-            const y = await this.streamCall(a, `Ch ${s + 1} · revise ${o.revisions}`, o.wroteWith || f, cs(a), pE(a, l, s, o.draft, S), d, (b) => {
+            const y = await this.streamCall(a, `Ch ${s + 1} · revise ${o.revisions}`, o.wroteWith || f, cs(a), { prefix: pre, user: pE(a, l, s, o.draft, S) }, d, (b) => {
               ((o.draft = b), this.emit(a, !1));
             });
             o.draft = y.trim() && !oo(y, a.targetWords) && Oe(y) >= Oe(k) * 0.6 ? y : k;
@@ -22758,7 +22751,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
         const v = o.draft,
           tells = scanTells(v).hits.map((h) => h.text).slice(0, 12);
         try {
-          const w = await this.streamCall(a, `Ch ${s + 1} · polish`, o.wroteWith || f, cs(a), hE(a, l, s, o.draft, tells), d, (S) => {
+          const w = await this.streamCall(a, `Ch ${s + 1} · polish`, o.wroteWith || f, cs(a), { prefix: pre, user: hE(a, l, s, o.draft, tells) }, d, (S) => {
             ((o.draft = S), this.emit(a, !1));
           });
           o.draft = w.trim() && !oo(w, a.targetWords) && Oe(w) >= Oe(v) * 0.75 ? w : v;
@@ -22841,36 +22834,28 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
     };
   }
   failureDirectives(a, s, l) {
-    const o = l.beats.filter((d) => !d.covered),
-      f = a.settings.passes === "maximum",
+    const f = a.settings.passes === "maximum",
       c = [];
-    for (const d of o)
-      c.push(`MISSING EVENT B${d.i}: "${s.beats[d.i - 1]}" has to happen on the page, as a scene.${d.note ? ` (${d.note})` : ""}`);
-    l.entryContinuous ||
-      c.push(
-        "BROKEN OPENING: the chapter doesn't follow from how the previous chapter ended. Rewrite the opening so it picks up from there, or make a deliberate jump in time or place clear in the first paragraph.",
-      );
-    for (const d of l.continuityErrors) c.push(`CONTINUITY ERROR: ${d}`);
-    for (const d of l.characterBreaks || []) c.push(`CHARACTER PROBLEM: ${d}. Fix it so the person acts on what they know and who they are, or show on the page what changes them.`);
-    f && !l.exitDelivered && c.push(`WRONG ENDING: the chapter has to end here: ${s.exitHook}`);
-    s.turn &&
-      l.turned === !1 &&
-      c.push(`NOTHING CHANGES: by the end of the chapter this has to be different, shown through what happens and what people do, never stated: ${s.turn}`);
+    if (f) for (const d of l.beats.filter((d) => !d.covered)) c.push(`PLANNED EVENT MISSING: "${s.beats[d.i - 1]}"${d.note ? ` (${d.note})` : ""}`);
+    l.entryContinuous || c.push("The opening doesn't follow on from the end of the previous chapter.");
+    for (const d of l.continuityErrors) c.push(`Continuity: ${d}`);
+    for (const d of l.characterBreaks || []) c.push(`Doesn't make sense: ${d}`);
+    f && !l.exitDelivered && c.push(`The plan ends the chapter here: ${s.exitHook}`);
     // Style notes alone never buy a full rewrite: the line fix handles them paragraph by paragraph.
     if (!c.length) return null;
     l.onTheNose?.length &&
       c.push(
-        `LINES THAT SAY THE MEANING OUT LOUD. Replace each with what the person would actually do or say instead (don't just delete it):${NL}${l.onTheNose.map((d) => `  ✗ "${d}"`).join(NL)}`,
+        `Lines that state the meaning outright:${NL}${l.onTheNose.map((d) => `  "${d}"`).join(NL)}`,
       );
     l.dialogueIssues?.length &&
       c.push(
-        `DIALOGUE PROBLEMS:${NL}${l.dialogueIssues.map((d) => `  ✗ ${d}`).join(NL)}${NL}Let conversations run with ordinary talk in them, lines of different lengths, and people who dodge and interrupt, each one talking the way their cast notes say.`,
+        `Dialogue: ${l.dialogueIssues.join("; ")}`,
       );
     l.styleBreaks?.length &&
       c.push(
-        `DOESN'T FIT THE STYLE GUIDE. Rewrite each so it matches the audience, vocabulary and sentence length the style guide asks for:${NL}${l.styleBreaks.map((d) => `  ✗ "${d}"`).join(NL)}`,
+        `Doesn't fit the style:${NL}${l.styleBreaks.map((d) => `  "${d}"`).join(NL)}`,
       );
-    l.notes && c.push(`EDITOR'S NOTES: ${l.notes}`);
+    l.notes && c.push(l.notes);
     return c.join(NL);
   }
   normalizeCloseout(a) {
@@ -23153,7 +23138,12 @@ async function LE() {
       ((o.onsuccess = () => s(o.result || [])), (o.onerror = () => l(o.error)));
     });
   n.close();
-  for (const s of a) s.plates || (s.plates = []);
+  for (const s of a)
+    (s.plates || (s.plates = []),
+      s.settings &&
+        ["deepseek/deepseek-chat-v3-0324", "deepseek/deepseek-v3.2"].includes(s.settings.architectModel) &&
+        s.settings.proseModel !== s.settings.architectModel &&
+        (s.settings.architectModel = ""));
   return a.sort((s, l) => l.updatedAt - s.updatedAt);
 }
 async function UE(n) {
@@ -31286,13 +31276,22 @@ function ik({
                   }),
               }),
               g.jsx(pa, {
-                label: "Architect",
-                value: c.settings.architectModel,
+                label: "Architect — plans the story",
+                value: c.settings.architectModel || "same as the prose model",
                 onPick: (y) =>
                   a((b) => {
                     b.settings.architectModel = y;
                   }),
               }),
+              c.settings.architectModel &&
+                g.jsx("button", {
+                  onClick: () =>
+                    a((b) => {
+                      b.settings.architectModel = "";
+                    }),
+                  className: "btn-press -mt-2 text-[12px] text-lamp/80",
+                  children: "Plan with the prose model instead",
+                }),
               g.jsx(pa, {
                 label: "Image",
                 value: c.settings.imageModel || ln,
@@ -31403,7 +31402,7 @@ function ik({
               g.jsxs("div", {
                 children: [
                   g.jsx(Pt, {
-                    hint: "Swift: draft plus a line fix of flagged phrases. Standard: also checks each chapter against its plan and the characters' records, and revises what's missing or wrong. Maximum: also insists each chapter ends where the plan says.",
+                    hint: "Swift: draft plus a line fix of flagged phrases. Standard: an editor reads each chapter against the book so far and sends it back only for continuity errors or things that make no sense. Maximum: also holds each chapter to its plan.",
                     children: "Rigor",
                   }),
                   g.jsx(vs, {
@@ -31566,7 +31565,7 @@ async function rk(n) {
     const H = y + b + E + z + L;
     (p.push(H), (x += H), (v += H + C + M));
   }
-  const w = s(n.settings.architectModel),
+  const w = s(n.settings.architectModel || n.settings.proseModel),
     S = 3e3 * w.pr + Math.min(12e3, d * 220) * w.co;
   return ((x += S), (v += S * 1.4), { low: x, high: v, perChapter: p });
 }
@@ -35557,13 +35556,22 @@ function kk() {
                       }),
                   }),
                   g.jsx(pa, {
-                    label: "Architect",
-                    value: I.settings.architectModel,
+                    label: "Architect — plans the story",
+                    value: I.settings.architectModel || "same as the prose model",
                     onPick: (W) =>
                       Y((St) => {
                         St.settings.architectModel = W;
                       }),
                   }),
+                  I.settings.architectModel &&
+                    g.jsx("button", {
+                      onClick: () =>
+                        Y((St) => {
+                          St.settings.architectModel = "";
+                        }),
+                      className: "btn-press mt-1 text-[12px] text-lamp/80",
+                      children: "Plan with the prose model instead",
+                    }),
                   g.jsx(pa, {
                     label: "Image — covers, portraits & plates",
                     value: I.settings.imageModel || ln,
