@@ -20290,11 +20290,13 @@ const eT = {
   ],
   Fa = Ht("x", C_),
   j_ = {
-    proseModel: "deepseek/deepseek-chat-v3-0324",
-    editorModel: "deepseek/deepseek-chat-v3-0324",
-    architectModel: "deepseek/deepseek-chat-v3-0324",
+    proseModel: "deepseek/deepseek-v3.2",
+    editorModel: "deepseek/deepseek-v3.2",
+    architectModel: "deepseek/deepseek-v3.2",
     passes: "standard",
-    maxRevisions: 2,
+    maxRevisions: 1,
+    thinking: "off",
+    budget: 0,
     extendShortChapters: !0,
     webSearch: !1,
     temperature: 0.85,
@@ -20365,6 +20367,19 @@ function t0(n) {
     "X-Title": "Bindery",
   };
 }
+const noThink = new Set();
+async function orFetch(n, a, s, l) {
+  const o = e0(n, a),
+    f = () => fetch(`${th}/chat/completions`, { method: "POST", headers: t0(s), signal: l, body: JSON.stringify(o) });
+  let c = await f();
+  return (
+    !c.ok &&
+      c.status === 400 &&
+      o.reasoning &&
+      (noThink.add(n.model), delete o.reasoning, (c = await f())),
+    c
+  );
+}
 function e0(n, a) {
   const l = /anthropic|claude/i.test(n.model)
       ? [{ type: "text", text: n.system, cache_control: { type: "ephemeral" } }]
@@ -20383,6 +20398,10 @@ function e0(n, a) {
     n.temperature !== void 0 && (o.temperature = n.temperature),
     n.json && (o.response_format = { type: "json_object" }),
     n.webSearch && (o.plugins = [{ id: "web" }]),
+    n.sessionId && (o.session_id = String(n.sessionId).slice(0, 200)),
+    (n.thinking ?? "off") !== "default" &&
+      !noThink.has(n.model) &&
+      (o.reasoning = (n.thinking ?? "off") === "off" ? { enabled: !1 } : { effort: "low" }),
     o
   );
 }
@@ -20391,6 +20410,7 @@ function n0(n) {
     promptTokens: n?.prompt_tokens ?? 0,
     completionTokens: n?.completion_tokens ?? 0,
     cost: typeof n?.cost == "number" ? n.cost : 0,
+    cached: n?.prompt_tokens_details?.cached_tokens ?? 0,
   };
 }
 async function a0(n) {
@@ -20424,12 +20444,7 @@ class eh {
       a.signal?.addEventListener("abort", c);
       const d = setTimeout(() => f.abort(), 3e5);
       try {
-        const m = await fetch(`${th}/chat/completions`, {
-          method: "POST",
-          headers: t0(s),
-          signal: f.signal,
-          body: JSON.stringify(e0(a, !1)),
-        });
+        const m = await orFetch(a, !1, s, f.signal);
         if (!m.ok) throw await a0(m);
         const p = await m.json();
         if (p?.error)
@@ -20446,12 +20461,7 @@ class eh {
       o = () => l.abort();
     a.signal?.addEventListener("abort", o);
     try {
-      const f = await fetch(`${th}/chat/completions`, {
-        method: "POST",
-        headers: t0(s),
-        signal: l.signal,
-        body: JSON.stringify(e0(a, !0)),
-      });
+      const f = await orFetch(a, !0, s, l.signal);
       if (!f.ok) throw await a0(f);
       const c = f.body?.getReader();
       if (!c) throw new Error("Stream unavailable from OpenRouter.");
@@ -21150,17 +21160,29 @@ function peopleBlock(n, beforeCh, onStage) {
     })
     .join(NL);
 }
-function canonFor(n, max = 150) {
+function canonFor(n, max = 150, ch) {
   const c = n.bible.canon;
-  return c.length <= max ? c : [...c.slice(0, 50), ...c.slice(-(max - 50))];
+  if (c.length <= max) return c;
+  if (!ch) return [...c.slice(0, Math.round(max / 3)), ...c.slice(-(max - Math.round(max / 3)))];
+  // Long books: the oldest facts (names, ages, how the world works), the newest, and anything that
+  // mentions someone or somewhere in this chapter.
+  const keys = [...(ch.cast || []), ch.pov || "", ch.location || ""]
+      .flatMap((x) => nameKey(x).split(/\s+/))
+      .filter((x) => x.length > 3 && !STOP.has(x)),
+    pick = new Set([...c.keys()].slice(0, 20).concat([...c.keys()].slice(-25)));
+  for (let i = 0; i < c.length && pick.size < max; i++) {
+    const t = c[i].toLowerCase();
+    keys.some((k) => t.includes(k)) && pick.add(i);
+  }
+  return [...pick].sort((x, y) => x - y).slice(0, max).map((i) => c[i]);
 }
-function eE(n, a, onStage) {
+function eE(n, a, onStage, ch) {
   const s = n.bible,
     l = [];
   s.actSummaries.length && l.push(`EARLIER IN THE BOOK, IN SHORT:${NL}${s.actSummaries.join(NL)}`);
   const o = s.synopses.filter((c) => c.ch < a);
   o.length && l.push(`WHAT HAPPENED IN EACH CHAPTER SO FAR:${NL}${o.map((c) => `Ch ${c.ch + 1}: ${c.text}`).join(NL)}`);
-  s.canon.length && l.push(`ESTABLISHED FACTS. Never contradict these:${NL}${bullets(canonFor(n))}`);
+  s.canon.length && l.push(`ESTABLISHED FACTS. Never contradict these:${NL}${bullets(canonFor(n, 70, ch))}`);
   const pb = peopleBlock(n, a, onStage);
   pb && l.push(`WHERE EACH PERSON STANDS NOW. Characters act on this: what they know, what they want, what they have been through. A character cannot know something that is not listed here or shown to them in this chapter.${NL}${pb}`);
   const f = s.threads.filter((c) => c.status !== "resolved");
@@ -21615,7 +21637,7 @@ function _f(n, a, s) {
   const worn = wornPhrases(n, s);
   return [
     "=== THE STORY SO FAR ===",
-    eE(n, s, a.cast),
+    eE(n, s, a.cast, a),
     "",
     "=== WHERE THIS CHAPTER PICKS UP ===",
     Rh(n, a, s),
@@ -21652,7 +21674,7 @@ ${a.beats.map((o, f) => `B${f + 1}. ${o}`).join(NL)}
 WHERE THE CHAPTER SHOULD END: ${a.exitHook || "(not specified)"}
 
 ESTABLISHED FACTS (flag contradictions):
-${bullets(canonFor(n, 60)) || "(none yet)"}
+${bullets(canonFor(n, 60, a)) || "(none yet)"}
 ${pb ? `\nWHERE EACH PERSON STOOD BEFORE THIS CHAPTER (flag anyone who knows something they couldn't know, forgets something important that happened to them, or acts against their established character with no reason shown):\n${pb}\n` : ""}
 CAST AND HOW EACH ONE TALKS:
 ${n.characters.map((c) => `- ${c.name}: ${c.speech || c.voice || "(no notes)"}`).join(NL) || "(none)"}
@@ -21678,7 +21700,7 @@ Reply with this JSON:
 function pE(n, a, s, l, o) {
   return [
     "=== THE STORY SO FAR ===",
-    eE(n, s, a.cast),
+    eE(n, s, a.cast, a),
     "",
     "=== WHERE THIS CHAPTER PICKS UP ===",
     Rh(n, a, s),
@@ -22198,7 +22220,20 @@ class ME {
       promptTokens: o.promptTokens,
       completionTokens: o.completionTokens,
       cost: o.cost,
+      cached: o.cached || 0,
     });
+  }
+  opts(a) {
+    return { sessionId: `bindery-${a.id}`, thinking: a.settings.thinking ?? "off" };
+  }
+  guard(a) {
+    const b = Number(a.settings.budget) || 0;
+    if (!b) return;
+    const sp = a.usage.reduce((t, u) => t + (u.cost || 0), 0);
+    if (sp >= b)
+      throw new Error(
+        `Spending limit reached: this book has spent $${sp.toFixed(2)} of its $${b} limit. Raise the limit in the sliders sheet, then Resume or Retry.`,
+      );
   }
   pause() {
     ((this.running = !1), this.abort?.abort());
@@ -22207,9 +22242,10 @@ class ME {
     return ((this.abort = new AbortController()), this.abort.signal);
   }
   async jsonCall(a, s, l, o, f, c, d, opt = {}) {
+    this.guard(a);
     const m = this.signal();
     let p;
-    for (let x = 0; x < 3; x++) {
+    for (let x = 0; x < 2; x++) {
       const v = x === 0 ? c : xr(c * (1 + x)),
         w =
           x === 0
@@ -22228,6 +22264,7 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
               temperature: x === 0 ? (opt.temperature ?? 0.3) : 0.3,
               json: !0,
               webSearch: x === 0 && !!opt.webSearch,
+              ...this.opts(a),
               signal: m,
             }),
           3,
@@ -22244,9 +22281,10 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
     }
     throw p instanceof Error
       ? new Error(`${s}: ${p.message} Try again, or switch the architect/editor model (sliders icon).`)
-      : new Error(`${s} failed after 3 attempts. Try a different architect/editor model.`);
+      : new Error(`${s} failed after 2 attempts. Try a different architect/editor model.`);
   }
   async streamCall(a, s, l, o, f, c, d) {
+    this.guard(a);
     const m = this.signal(),
       p = await i0(
         () =>
@@ -22257,6 +22295,7 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
             label: s,
             maxTokens: c,
             temperature: a.settings.temperature,
+            ...this.opts(a),
             signal: m,
             onDelta: (x, v) => d(v),
           }),
@@ -22527,7 +22566,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
   setStage(a, s, l) {
     ((a.chapters[s].state.stage = l), this.emit(a));
   }
-  async lineFix(a, s, text, model) {
+  async lineFix(a, s, text, model, extra = []) {
     const paras = text.split(/\n\s*\n/),
       worn = wornPhrases(a, s),
       flagged = new Map(),
@@ -22541,9 +22580,17 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       const sc = scanTells(p);
       for (const h of sc.hits) add(i, `stock phrase "${h.match}"`);
       (p.match(/—|–/g) || []).length >= 3 && add(i, "too many dashes; use commas, full stops or parentheses");
-      const low = p.toLowerCase().replace(/[’]/g, "'");
-      for (const w of worn) low.includes(w) && add(i, `"${w}" has been used too often in this book; say it differently`);
+      const low = p.toLowerCase().replace(/[’]/g, "'"),
+        hit = worn.filter((w) => low.includes(w.replace(/…$/, "")));
+      hit.length && add(i, `overused in this book, say differently: ${hit.map((w) => `"${w}"`).join(", ")}`);
     });
+    const norm = (x) => x.toLowerCase().replace(/[“”"«»’']/g, "").replace(/\s+/g, " ").trim();
+    for (const e of extra) {
+      const q = norm(e.quote).slice(0, 60);
+      if (q.length < 8) continue;
+      const i = paras.findIndex((p) => norm(p).includes(q));
+      i >= 0 && add(i, e.why);
+    }
     const whole = scanTells(text);
     if (whole.dashRate > 9) paras.forEach((p, i) => (p.match(/—|–/g) || []).length >= 2 && add(i, "too many dashes; use commas, full stops or parentheses"));
     const idx = [...flagged.keys()].sort((x, y) => flagged.get(y).length - flagged.get(x).length).slice(0, 14).sort((x, y) => x - y);
@@ -22559,6 +22606,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
             label: `Ch ${s + 1} · line fix`,
             maxTokens: xr(list.reduce((t, p) => t + Oe(p.text), 0) * 2.2 + 600),
             temperature: Math.min(0.8, a.settings.temperature),
+            ...this.opts(a),
             signal: sig,
           }),
         3,
@@ -22723,7 +22771,12 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       if (!o.final && !o.lineFixed) {
         this.setStage(a, s, "revising");
         try {
-          o.draft = await this.lineFix(a, s, o.draft, o.wroteWith || f);
+          const v = o.verify || {},
+            extra = [
+              ...(v.onTheNose || []).map((q) => ({ quote: q, why: `states a feeling, theme or lesson outright ("${q}"); show it through what the person does or says instead` })),
+              ...(v.styleBreaks || []).map((q) => ({ quote: q, why: `doesn't fit the style guide ("${q}"); match its audience, vocabulary and sentence length` })),
+            ];
+          o.draft = await this.lineFix(a, s, o.draft, o.wroteWith || f, extra);
         } catch (w) {
           if (/Paused|abort/i.test(String(w?.message || w))) throw w;
         }
@@ -22799,26 +22852,26 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       );
     for (const d of l.continuityErrors) c.push(`CONTINUITY ERROR: ${d}`);
     for (const d of l.characterBreaks || []) c.push(`CHARACTER PROBLEM: ${d}. Fix it so the person acts on what they know and who they are, or show on the page what changes them.`);
-    return (
-      f && !l.exitDelivered && c.push(`WRONG ENDING: the chapter has to end here: ${s.exitHook}`),
-      s.turn &&
-        l.turned === !1 &&
-        c.push(`NOTHING CHANGES: by the end of the chapter this has to be different, shown through what happens and what people do, never stated: ${s.turn}`),
-      l.onTheNose?.length &&
-        c.push(
-          `LINES THAT SAY THE MEANING OUT LOUD. Replace each with what the person would actually do or say instead (don't just delete it):${NL}${l.onTheNose.map((d) => `  ✗ "${d}"`).join(NL)}`,
-        ),
-      l.dialogueIssues?.length &&
-        c.push(
-          `DIALOGUE PROBLEMS:${NL}${l.dialogueIssues.map((d) => `  ✗ ${d}`).join(NL)}${NL}Let conversations run with ordinary talk in them, lines of different lengths, and people who dodge and interrupt, each one talking the way their cast notes say.`,
-        ),
-      l.styleBreaks?.length &&
-        c.push(
-          `DOESN'T FIT THE STYLE GUIDE. Rewrite each so it matches the audience, vocabulary and sentence length the style guide asks for:${NL}${l.styleBreaks.map((d) => `  ✗ "${d}"`).join(NL)}`,
-        ),
-      l.notes && c.length && c.push(`EDITOR'S NOTES: ${l.notes}`),
-      c.length ? c.join(NL) : null
-    );
+    f && !l.exitDelivered && c.push(`WRONG ENDING: the chapter has to end here: ${s.exitHook}`);
+    s.turn &&
+      l.turned === !1 &&
+      c.push(`NOTHING CHANGES: by the end of the chapter this has to be different, shown through what happens and what people do, never stated: ${s.turn}`);
+    // Style notes alone never buy a full rewrite: the line fix handles them paragraph by paragraph.
+    if (!c.length) return null;
+    l.onTheNose?.length &&
+      c.push(
+        `LINES THAT SAY THE MEANING OUT LOUD. Replace each with what the person would actually do or say instead (don't just delete it):${NL}${l.onTheNose.map((d) => `  ✗ "${d}"`).join(NL)}`,
+      );
+    l.dialogueIssues?.length &&
+      c.push(
+        `DIALOGUE PROBLEMS:${NL}${l.dialogueIssues.map((d) => `  ✗ ${d}`).join(NL)}${NL}Let conversations run with ordinary talk in them, lines of different lengths, and people who dodge and interrupt, each one talking the way their cast notes say.`,
+      );
+    l.styleBreaks?.length &&
+      c.push(
+        `DOESN'T FIT THE STYLE GUIDE. Rewrite each so it matches the audience, vocabulary and sentence length the style guide asks for:${NL}${l.styleBreaks.map((d) => `  ✗ "${d}"`).join(NL)}`,
+      );
+    l.notes && c.push(`EDITOR'S NOTES: ${l.notes}`);
+    return c.join(NL);
   }
   normalizeCloseout(a) {
     return {
@@ -22921,6 +22974,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       label: `Ch ${s + 1} · passage`,
       system: xE(),
       user: bE(a, s, o, l, f),
+      ...this.opts(a),
       maxTokens: Math.min(8e3, Math.max(600, Math.round(l.split(/\s+/).length * 4 + 400))),
       temperature: a.settings.temperature,
     });
@@ -29924,11 +29978,12 @@ function M1(n) {
 }
 function O1(n) {
   const a = {};
-  let s = 0,
+  let cached = 0,
+    s = 0,
     l = 0,
     o = 0;
   for (const f of n.usage) {
-    ((s += f.promptTokens), (l += f.completionTokens), (o += f.cost));
+    ((s += f.promptTokens), (l += f.completionTokens), (o += f.cost), (cached += f.cached || 0));
     const c = f.label.replace(/Ch \d+ · /, "").replace(/ \d+$/, "");
     (a[c] || (a[c] = { calls: 0, cost: 0, tokens: 0 }),
       a[c].calls++,
@@ -29940,6 +29995,7 @@ function O1(n) {
     promptTokens: s,
     completionTokens: l,
     cost: o,
+    cached,
     perStage: a,
   };
 }
@@ -30744,29 +30800,74 @@ const nk = [
     "Cosmic horror",
     "Slipstream",
   ];
-function NumField({ value: n, min: a, max: s, onSet: l }) {
+function NumField({ value: n, min: a, max: s, onSet: l, dec: d }) {
   const [o, f] = tt.useState(String(n || ""));
   tt.useEffect(() => {
     f(String(n || ""));
   }, [n]);
-  const commit = (v) => {
-    const x = Math.max(a, Math.min(s, Math.floor(+String(v).replace(/[^0-9]/g, "")) || a));
-    (l(x), f(String(x)));
-  };
+  const clean = (v) => (d ? String(v).replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") : String(v).replace(/[^0-9]/g, "")),
+    num = (v) => (d ? Math.round(parseFloat(v) * 100) / 100 : Math.floor(+v)),
+    commit = (v) => {
+      const x = Math.max(a, Math.min(s, num(clean(v)) || a));
+      (l(x), f(String(x)));
+    };
   return g.jsx("input", {
     className: "field",
     type: "text",
-    inputMode: "numeric",
-    pattern: "[0-9]*",
+    inputMode: d ? "decimal" : "numeric",
+    pattern: d ? void 0 : "[0-9]*",
     autoComplete: "off",
     value: o,
     onChange: (c) => {
-      const v = c.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-        x = Math.floor(+v);
+      const v = clean(c.target.value).slice(0, 8),
+        x = num(v);
       (f(v), v && x >= a && x <= s && l(x));
     },
     onBlur: (c) => commit(c.target.value),
     onKeyDown: (c) => c.key === "Enter" && c.target.blur(),
+  });
+}
+function CostControls({ st: n, set: a, spent: s }) {
+  return g.jsxs(g.Fragment, {
+    children: [
+      g.jsx(Pt, {
+        hint: "Many current models think before they write and bill that thinking as output. Off is cheapest and fine for fiction. A model that can't switch it off is asked again without the switch.",
+        children: "Model thinking",
+      }),
+      g.jsx(vs, {
+        value: n.thinking ?? "off",
+        onChange: (l) => a((o) => (o.thinking = l)),
+        options: [
+          { v: "off", label: "Off" },
+          { v: "low", label: "A little" },
+          { v: "default", label: "Model's default" },
+        ],
+      }),
+      g.jsx(Pt, {
+        hint: "How many times a chapter can be rewritten in full when proofing finds a missing event, a continuity error or a character acting wrong. Style notes never trigger a rewrite; the line fix handles those. Each rewrite costs about one more chapter of prose.",
+        children: "Full rewrites per chapter",
+      }),
+      g.jsx(vs, {
+        value: n.maxRevisions ?? 1,
+        onChange: (l) => a((o) => (o.maxRevisions = l)),
+        options: [
+          { v: 0, label: "None" },
+          { v: 1, label: "One" },
+          { v: 2, label: "Two" },
+        ],
+      }),
+      g.jsx(Pt, {
+        hint: `The press pauses when this book has spent this much, in dollars. 0 means no limit.${s !== void 0 ? ` Spent so far: ${Or(s)}.` : ""}`,
+        children: "Spending limit ($)",
+      }),
+      g.jsx(NumField, {
+        value: n.budget || 0,
+        min: 0,
+        max: 1e4,
+        dec: !0,
+        onSet: (l) => a((o) => (o.budget = l)),
+      }),
+    ],
   });
 }
 function ik({
@@ -31317,6 +31418,10 @@ function ik({
                       { v: "maximum", label: "Maximum" },
                     ],
                   }),
+                  g.jsx(CostControls, {
+                    st: c.settings,
+                    set: (y) => a((b) => y(b.settings)),
+                  }),
                 ],
               }),
               g.jsxs("div", {
@@ -31441,7 +31546,7 @@ async function rk(n) {
     const y = f * l.pr + c * l.co + 0.3 * c * (l.pr + l.co),
       b = m ? 0 : (f + c) * o.pr + 500 * o.co,
       E = (f * 0.4 + c) * o.pr + 600 * o.co,
-      C = m ? 0 : (f + c) * l.pr + c * l.co + b,
+      C = m ? 0 : ((n.settings.maxRevisions ?? 1) > 0 ? (f + c) * l.pr + c * l.co + b : 0),
       M = n.settings.extendShortChapters
         ? 0.25 * ((f + c) * l.pr + c * 0.6 * l.co)
         : 0,
@@ -31860,7 +31965,7 @@ function ck({
                 g.jsx("span", {
                   className: "text-vellum/30",
                   children:
-                    " · live OpenRouter pricing · high end assumes one revision per chapter; prompt caching usually lands it lower",
+                    " · live OpenRouter pricing · the high end assumes one full rewrite per chapter; caching usually lands it lower",
                 }),
               ],
             }),
@@ -34888,7 +34993,7 @@ function _k({ project: n, onReport: a, report: s, reporting: l }) {
             g.jsx("p", {
               className: "text-[11px] text-vellum/30 mt-3",
               children:
-                "Live from OpenRouter's usage accounting per call. The static prefix is byte-identical across every call in this book, so providers with prompt caching bill most of it at cache rates.",
+                `Live from OpenRouter's usage accounting per call. ${c.promptTokens ? `${y0(c.cached)} of ${y0(c.promptTokens)} input tokens (${Math.round((100 * c.cached) / c.promptTokens)}%) were read from cache, which most providers bill at a quarter to a tenth of the normal price.` : ""} Every call in a book carries the same session id, so OpenRouter keeps it on one provider and the cache stays warm.`,
             }),
           ],
         }),
@@ -35543,6 +35648,11 @@ function kk() {
                       { v: "standard", label: "Standard" },
                       { v: "maximum", label: "Maximum" },
                     ],
+                  }),
+                  g.jsx(CostControls, {
+                    st: I.settings,
+                    set: (W) => Y((St) => W(St.settings)),
+                    spent: O1(I).cost,
                   }),
                   g.jsxs("div", {
                     className: "flex items-center justify-between mt-4",
