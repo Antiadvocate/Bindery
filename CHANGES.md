@@ -1,3 +1,8 @@
+# Bindery patch — September 29, 2026 (11): long books no longer stall at the architect page
+The bundle is now index-0361dedf.js.
+1. A 40-chapter book made its cast and then sat on "Drawing the architecture…". Every planning call was a single request that the app cut off after 5 minutes. A batch of 8 detailed chapters can take longer than that on a slow model, and each cut-off was retried up to six times with nothing on screen, so one batch could hang for half an hour.
+2. Planning calls (charter, cast, skeleton, outline batches, chapter checks) are now streamed. They are cut off only after 75 seconds with nothing arriving, not after 5 minutes in total.
+3. The architect page names the call in progress ("Outline · ch 17–24") and a running token count, so a slow call reads as working.
 # Bindery patch — September 29, 2026 (10): the skeleton outline no longer fails on a short reply
 The bundle is now index-1e5f5d0c.js.
 1. Long books failed at "Outline · skeleton: Model returned JSON without the required structure." The skeleton was accepted only with a "seeds" list covering 80% of the chapters. A reply cut off by the output limit, or one that filed the list under "chapters" or "outline" or one level down, failed both attempts.
