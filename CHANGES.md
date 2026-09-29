@@ -1,3 +1,9 @@
+# Bindery patch — September 29, 2026 (10): the skeleton outline no longer fails on a short reply
+The bundle is now index-1e5f5d0c.js.
+1. Long books failed at "Outline · skeleton: Model returned JSON without the required structure." The skeleton was accepted only with a "seeds" list covering 80% of the chapters. A reply cut off by the output limit, or one that filed the list under "chapters" or "outline" or one level down, failed both attempts.
+2. The list is now found under "seeds", "chapters", "outline", "skeleton", "book" or "plan", one level down, or as a bare array. Items may be plain strings, and "summary" or "logline" count as the gist.
+3. A short skeleton is finished by asking for only the missing chapters, by number, with the planned ones listed. Up to two such calls. If at least half the book is planned after that, the rest get placeholder lines that the chapter-by-chapter outline then plans in detail; under half still stops with an error that says how many were planned.
+4. The skeleton's output budget went from 90 tokens a chapter plus 2,000 to 140 plus 2,500, which leaves room when Model thinking is on.
 # Bindery patch — September 29, 2026 (9): planning written as prose
 The bundle is now index-295cb6c1.js.
 1. The model's planning leaked into a chapter again, this time with no tags around it. It finished the chapter, then wrote paragraphs about the task ("The instruction says…", "Need to ensure about 350 words", "Let me refine:") and started a second draft. Only tagged notes were stripped, so all of it went into the book.

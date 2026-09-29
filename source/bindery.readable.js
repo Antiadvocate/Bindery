@@ -22577,8 +22577,78 @@ Continue the chapter from exactly where it stops. Start with the very next chara
       this.running = !1;
     }
   }
+  // The skeleton's one-line-per-chapter list, wherever the model filed it: "seeds", "chapters",
+  // "outline", one level down, or a bare array. Items may be strings or use summary/logline for gist.
+  pickSeeds(m) {
+    const has = (v) => Array.isArray(v) || Array.isArray(v?.seeds) || Array.isArray(v?.chapters);
+    const host = Array.isArray(m) ? {} : has(m?.seeds) || !m || typeof m != "object" ? m || {} : ["chapters", "outline", "skeleton", "book", "plan"].map((k) => m[k]).find(has) || m;
+    const list = Array.isArray(m)
+      ? m
+      : Array.isArray(host.seeds) ? host.seeds : Array.isArray(host.chapters) ? host.chapters : Array.isArray(host) ? host : Array.isArray(m?.seeds) ? m.seeds : [];
+    const str = (v) => (typeof v == "string" ? v.trim() : "");
+    const seeds = list
+      .map((x) =>
+        typeof x == "string"
+          ? { title: "", gist: x.trim() }
+          : x && typeof x == "object"
+            ? { title: str(x.title) || str(x.name), gist: str(x.gist) || str(x.summary) || str(x.logline) || str(x.description) || str(x.line) || str(x.plot) }
+            : null,
+      )
+      .filter((x) => x && (x.title || x.gist));
+    const src = Array.isArray(host) ? {} : host,
+      top = Array.isArray(m) ? {} : m || {};
+    return {
+      seeds,
+      plan: {
+        ...top,
+        threads: top.threads ?? src.threads,
+        newCharacters: top.newCharacters ?? src.newCharacters,
+        characters: top.characters ?? src.characters,
+      },
+    };
+  }
+  // A skeleton that came back short (cut off, or the model stopped early) is finished by asking
+  // for only the missing chapters, twice at most, instead of failing the whole outline.
+  async topUpSeeds(a, model, system, ctx, reply) {
+    const n = a.numChapters,
+      { seeds, plan } = this.pickSeeds(reply);
+    let f = seeds.slice(0, n);
+    for (let t = 0; t < 2 && f.length < n; t++) {
+      if (!this.running) throw new Error("Paused");
+      const left = n - f.length;
+      let more = null;
+      try {
+        more = await this.jsonCall(
+          a,
+          `Outline · skeleton ${f.length + 1}–${n}`,
+          model,
+          system,
+          `${ctx}
+
+THE BOOK SO FAR, ONE LINE PER CHAPTER:
+${f.map((S, k) => `${k + 1}. ${S.title}${S.title && S.gist ? ": " : ""}${S.gist}`).join("\n")}
+
+The book has ${n} chapters and only ${f.length} are planned. Return ONLY chapters ${f.length + 1} to ${n}, one line each, carrying the story on to its ending:
+{ "seeds": [{ "title": string, "gist": string }] }   // EXACTLY ${left} items`,
+          Math.max(1200, Math.min(16e3, Math.round(140 * left + 1500))),
+          (m) => this.pickSeeds(m).seeds.length > 0,
+          { temperature: 0.6 },
+        );
+      } catch (e) {
+        if (!this.running) throw e;
+      }
+      if (!more) break;
+      f = f.concat(this.pickSeeds(more).seeds).slice(0, n);
+    }
+    if (f.length < Math.ceil(n / 2))
+      throw new Error(
+        `Outline · skeleton: the architect planned only ${f.length} of ${n} chapters. Try again, lower the chapter count, or switch the architect model (sliders icon).`,
+      );
+    for (; f.length < n; ) f.push({ title: `Chapter ${f.length + 1}`, gist: "Continue the story toward the ending." });
+    return { seeds: f, plan };
+  }
   async buildOutlineBatched(a, s, l = !1) {
-    const o = await this.jsonCall(
+    let o = await this.jsonCall(
         a,
         "Outline · skeleton",
         s,
@@ -22593,12 +22663,13 @@ The book is long (${a.numChapters} chapters), so for now return only the skeleto
   "threads": [{ "name": string, "note": string, "payoff": number }],   // 3-8 threads that run across chapters, with the chapter number where each pays off
   "newCharacters": [{ "name": string, "role": string, "want": string, "speech": string }]   // minor characters the plan needs, or []
 }`,
-        xr(90 * a.numChapters + 2e3),
-        (m) => Array.isArray(m?.seeds) && m.seeds.length >= Math.ceil(a.numChapters * 0.8),
+        xr(140 * a.numChapters + 2500),
+        (m) => this.pickSeeds(m).seeds.length > 0,
         { temperature: 0.6, webSearch: a.settings.webSearch },
-      ),
-      f = rn(o?.seeds).slice(0, a.numChapters);
-    for (; f.length < a.numChapters; ) f.push({ title: `Chapter ${f.length + 1}`, gist: "Continue the story toward the ending." });
+      );
+    const top = await this.topUpSeeds(a, s, Tf(), `${outlineContext(a)}\n\n${PLOT_RULES}`, o),
+      f = top.seeds;
+    o = top.plan;
     const c = [],
       d = 8;
     for (let m = 0; m < a.numChapters; m += d) {
