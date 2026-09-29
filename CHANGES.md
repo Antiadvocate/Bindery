@@ -1,23 +1,12 @@
-# Bindery patch — September 29, 2026 (4): the writer writes the book
-The bundle is now index-4cf3f3c4.js.
+# Bindery patch — September 29, 2026 (5): how people work
+The bundle is now index-aa7abc76.js.
 
-A good model asked directly for a story writes one that holds together. Bindery was making it write worse:
-- The plot came from the "architect" model (DeepSeek by default), and its events were handed to the prose model as things that "must all happen, checked one by one". A missing one sent the chapter back for a full rewrite. The prose model was writing someone else's outline under orders.
-- The prose model never saw the book. It got a 100-word summary per earlier chapter, the last few lines, and a stack of notes.
-- It was buried in instructions: 13 craft rules, ban lists, theme notes, "what the chapter is about underneath", motifs. Writing by checklist reads like it.
+The writer had no understanding of people, so it fell back on its trained default: the clown with a sad heart, being seen as the cure, the monster as a hurt person, the cold mind warming up. That default is sentimental, which is why "hilarious, grimdark" came out neither.
 
-What changed:
-1. Planning (charter, characters, outline) uses the prose model unless you pick a separate architect. Books still on the old DeepSeek architect default are switched to "same as the prose model" when the app loads.
-2. The writer gets the book so far as text: every written chapter in full, up to about 60,000 tokens. Beyond that, the oldest chapters are sent as summaries, with the established facts and where the characters stand. The newest chapters are always in full.
-3. The writer's instructions are the style, the author's requirements and brief, the main characters and one sentence on how to write: 250 tokens instead of 1,650. The craft rules, ban lists, theme, motifs, "turn" and "subtext" are gone from the writer. So are the rules on jokes and powers added earlier today.
-4. The chapter plan is presented as a guide written before the book started: "where the story so far has gone differently, follow the story and keep it making sense." The outline asks for what happens, not turns, subtext and motifs.
-5. The character notes step asks for characters as the author would note them. Characters from an existing film, book or game are described as they are there. The lie/need/wound template is gone.
-6. Proofing (Standard) sends a chapter back only for continuity errors or things that make no sense. It reads the end of the previous chapter itself. Missing planned events are only enforced in Maximum.
-7. Cost: the manuscript is sent first in the message, one block per chapter, so it is read from cache. On Claude models each chapter block carries a cache marker, and chapter N reuses what chapter N-1 cached. DeepSeek, Gemini and the rest cache the prefix automatically. Late chapters send more input than before; most of it is billed at cache rates (0.1x on Claude and DeepSeek).
-8. Stock-phrase detection, the paragraph line fix and repeated-phrase detection stay. They run locally and cost the writer nothing.
-
-# Bindery patch — September 29, 2026 (3b): chapters cut off mid-word
-1. Chapters that hit the model's output limit were accepted as finished ("You will come", "the mo"). The app now reads why the model stopped. A chapter that stopped on the limit, or ends mid-sentence, is continued from its last word (up to two continuations).
-2. The output allowance per chapter is 3 tokens per target word plus 2,500 (was 2 plus 600). Thinking models spend this allowance before the prose, and you only pay for what is produced.
-3. Five-word phrases repeated across chapters count as repeated phrases.
+1. A ground text, "How people work", goes to the planner, the writer and the editor. It is the story sections of Weft's PHILOSOPHY.md: the grip, the body's resting point, the perception gate, the aperture, the lifecycle of a feeling, noticing and release, conscience, attachment under threat, being sure of someone, rooms. Added from Dzogchen, in plain words with no Buddhist terms: the grip that makes a self and a world; hope and fear across gain/loss, pleasure/pain, praise/blame, somebody/nobody; the charge and the urge that feeds it; stuck patterns as the same energy as their clear capacities; six usual ways of being stuck; the three ways a charge passes. It is sent once and read from cache.
+2. There are no genre or comedy rules. Before writing, the planner works out "where the tone comes from": which of these people's grips, meeting which situations, produce the tone the author asked for. The writer follows it and the planner writes it. It can be edited in the Bible.
+3. Character notes are built on the ground: what they want, what they hold onto, what they most fear, resting state, usual way of being stuck, what they do under threat, how much others' pain registers, patterns that fire, what they're wrong about, how they talk and how it narrows, and the picture they hold of the others. There is no pre-decided arc; what happens to them comes from what they meet.
+4. The outline plans pressure, not lessons. Each chapter says what presses on whom.
+5. After every chapter the record keeps each person's grip (open to breaking), what they're holding or retelling, who they misread and as what, which patterns fired, and what they let go of and how. The writer gets this for everyone going into the next chapter.
+6. The editor carries the ground and sends a chapter back when people stop working that way: someone braced reads others accurately; a pattern vanishes because the scene turned sad; a cold character is warmed or explained as a wound; someone is freed by being told about themselves; someone narrates their own inner workings; a release with nothing built up to it; the tone stated instead of arising.
 
