@@ -22334,7 +22334,10 @@ class ME {
     this.guard(a);
     const m = this.signal();
     let p;
+    try {
     for (let x = 0; x < 2; x++) {
+      const tag = x === 0 ? s : `${s} (retry ${x})`;
+      ((a.working = tag), this.emit(a));
       const v = x === 0 ? c : xr(c * (1 + x)),
         w =
           x === 0
@@ -22353,6 +22356,9 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
               temperature: x === 0 ? (opt.temperature ?? 0.3) : 0.3,
               json: !0,
               webSearch: x === 0 && !!opt.webSearch,
+              // Streamed so a long plan isn't cut at the 5-minute cap on a single request; only 75s of silence aborts it.
+              // The running count shows on the architect page, so a slow call reads as working.
+              onDelta: (t, all) => ((a.working = `${tag} · ~${Math.round(all.length / 4)} tokens`), this.emit(a, !1)),
               ...this.opts(a),
               signal: m,
             }),
@@ -22367,6 +22373,9 @@ Your previous reply was empty, cut off, or missing fields. Reply with ONLY the c
       } catch (k) {
         p = k;
       }
+    }
+    } finally {
+      delete a.working;
     }
     throw p instanceof Error
       ? new Error(`${s}: ${p.message} Try again, or switch the architect/editor model (sliders icon).`)
@@ -35636,7 +35645,7 @@ function kk() {
               busyLabel:
                 E === "charter"
                   ? "Distilling the charter…"
-                  : "Drawing the architecture…",
+                  : `Drawing the architecture…${I.working ? ` ${I.working}` : ""}`,
             }),
           I &&
             I.phase !== "setup" &&
