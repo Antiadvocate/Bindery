@@ -21073,22 +21073,17 @@ function sameName(x, y) {
   return (aw.length === 1 && aw[0].length > 2 && (bw[0] === aw[0] || bw[bw.length - 1] === aw[0])) || (bw.length === 1 && bw[0].length > 2 && (aw[0] === bw[0] || aw[aw.length - 1] === bw[0]));
 }
 const vlAuto = (n) => n.voiceLockAuto ?? !n.voiceSample?.trim();
+// A character as a novelist notes them for themselves. The planner's understanding shapes these
+// notes, but none of its vocabulary reaches the writer.
 const groundLine = (o) =>
   [
     `- ${o.name}${o.role ? ` (${o.role})` : ""}.`,
-    o.kind && `What it is and how it perceives: ${o.kind}.`,
+    o.kind && `What it is: ${o.kind}.`,
+    o.voice && `What they are like: ${o.voice}.`,
     o.want && `Wants: ${o.want}.`,
-    o.grip && `Holds onto: ${o.grip}.`,
-    o.fears && `Most afraid of: ${o.fears}.`,
-    o.rest && `Resting state: ${o.rest}.`,
-    o.style && `Usual way of being stuck: ${o.style}.`,
-    o.underThreat && `Under threat: ${o.underThreat}.`,
-    o.conscience && `Others' pain: ${o.conscience}.`,
-    o.patterns && `Patterns that fire: ${o.patterns}.`,
-    o.wrongAbout && `Wrong about: ${o.wrongAbout}.`,
+    o.abilities && `Can and can't do: ${o.abilities}.`,
     o.speech && `How they talk: ${o.speech}.`,
     o.relations && `With the others: ${o.relations}.`,
-    !o.grip && o.voice && `What they are like: ${o.voice}.`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -21131,17 +21126,16 @@ Calm is not kindness. Some beings feel others' pain barely or not at all: calm m
 Things that aren't aware (weather, stones, tools, a mindless machine) don't grip anything; they are simply how the world appears to the beings that do.
 
 The tone the author asked for is not added on top. It comes out of these beings, with these grips, meeting this situation.`;
-const WRITING_RULES = `Write it the way a good novelist would: in scenes, in plain and specific prose, with people who talk like people and act on what they know and want, and keep everything consistent with what has already happened in the book.`;
+const WRITING_RULES = `Write each scene from inside the people living it, in the world as it is, and keep everything consistent with what has already happened in the book.`;
 function S1(n) {
   return [
     "You are writing a novel, one chapter at a time. Each reply is the text of one chapter and nothing else: no title, no heading, no notes.",
-    GROUND,
-    n.styleGuide && `STYLE: ${n.styleGuide}`,
-    n.texture && `WHERE THIS BOOK'S TONE COMES FROM (worked out before writing; never stated on the page):${NL}${n.texture}`,
-    WRITING_RULES,
-    n.charter.length && `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
     n.premise && !n.charterVerbatim && `THE AUTHOR'S BRIEF:${NL}${n.premise.slice(0, 9e3)}`,
+    n.charter.length && `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
+    n.styleGuide && `STYLE: ${n.styleGuide}`,
+    n.texture && `THE WORLD, AND WHAT THE BOOK IS AFTER:${NL}${n.texture}`,
     n.characters.length && `THE CHARACTERS:${NL}${n.characters.map(groundLine).join(NL)}`,
+    WRITING_RULES,
   ]
     .filter(Boolean)
     .join(`${NL}${NL}`);
@@ -21184,9 +21178,7 @@ function peopleNow(n, beforeCh) {
     const last = log[log.length - 1],
       pick = (k) => [...log].reverse().find((e) => e[k])?.[k] || "",
       knows = log.flatMap((e) => e.knows || []).slice(-10),
-      changed = log.map((e) => e.changed).filter(Boolean).slice(-5),
-      rel = log.map((e) => e.relations).filter(Boolean).slice(-4),
-      released = log.map((e) => e.released && `ch ${e.ch + 1}: ${e.released}`).filter(Boolean).slice(-3);
+      rel = log.map((e) => e.relations).filter(Boolean).slice(-4);
     out.push({
       name: p.name,
       lastCh: last.ch,
@@ -21194,13 +21186,7 @@ function peopleNow(n, beforeCh) {
       state: pick("state"),
       wants: pick("wants"),
       called: pick("called"),
-      grip: last.grip || "",
-      holding: last.holding || "",
-      misreads: last.misreads || "",
-      fired: last.fired || "",
-      released,
       knows,
-      changed,
       rel,
       gone: last.gone || "",
     });
@@ -21225,14 +21211,8 @@ function peopleBlock(n, beforeCh, onStage) {
         p.called && `Called on the page so far: ${p.called}.`,
         p.where && `Where: ${p.where}.`,
         p.state && `State: ${p.state}.`,
-        p.grip && `Grip: ${p.grip}.`,
-        p.holding && `Still holding: ${p.holding}.`,
-        p.misreads && `Misreads: ${p.misreads}.`,
-        full && p.fired ? `Patterns lately: ${p.fired}.` : "",
-        full && p.released.length ? `Let go of: ${p.released.join("; ")}.` : "",
         p.wants && `Wants now: ${p.wants}.`,
         full && p.knows.length ? `Knows: ${p.knows.join("; ")}.` : "",
-        full && p.changed.length ? `How they have changed: ${p.changed.join("; ")}.` : "",
         full && p.rel.length ? `Relationships: ${p.rel.join("; ")}.` : "",
       ]
         .filter(Boolean)
@@ -21611,28 +21591,25 @@ function designPrompt(n) {
       ? `CHARACTERS THE AUTHOR HAS ALREADY WRITTEN DOWN (keep them, same names, and keep what the author said):${NL}${user.map(groundLine).join(NL)}`
       : "",
     "",
-    "You are about to write this book. First, make your notes on its main characters (3 to 8), whatever they are: people, animals, gods, machines, a swarm. See them the way described above. If a character comes from an existing film, book or game, it is exactly who it is there; your notes say what drives it. Invented characters get names that fit the setting and what they are (an animal may have no name, or the one others gave it). Nobody has an arc decided in advance: what happens to them comes from what they meet.",
+    "You are about to write this book. The understanding above is yours: it is how you see these beings. It stays with you. None of its words or ideas go into your notes, and the book is not about it.",
     "",
-    'Then work out, for "texture", where the tone the author asked for actually comes from in this book: which of these beings\' grips, meeting which situations in this world, produce it. That is what the writer will follow, so be concrete about these people and this situation, and don\'t write jokes, rules or adjectives.',
+    "Make your notes on the main characters (3 to 8), whatever they are, the way a novelist jots notes for themselves before starting, in ordinary words. If a character comes from an existing film, book or game, it is exactly who it is there. Invented characters get names that fit the setting and what they are. Nobody has an arc decided in advance: what happens to them comes from what they meet.",
+    "",
+    'Then note the world: what it is like to live in, what its people take for granted, what they fear and how they treat what they don\'t understand. If it comes from an existing film, book or game, it is exactly as it is there. And note what the book is after: what the author wants a reader to feel, going by the brief and the genre.',
     "",
     `JSON:
 {
   "characters": [{
     "name": string, "role": string,
-    "kind": string,         // what sort of being it is, and how it perceives: its senses, what its world is made of, its scale of time
-    "want": string,         // what they are after right now, concretely
-    "grip": string,         // what they hold onto as "me" and must keep confirmed
-    "fears": string,        // the loss, pain, blame or being-nobody they most avoid
-    "rest": string,         // how braced they usually are, and how fast they come back
-    "style": string,        // their usual way of being stuck, in their own terms
-    "underThreat": string,  // what they do with people when threatened
-    "conscience": string,   // how much other people's pain registers with them
-    "patterns": string,     // 2-4 concrete behaviours that fire under load, e.g. "answers a question with a joke first"
-    "wrongAbout": string,   // one thing they are sure of that isn't so, or ""
-    "speech": string,       // how they talk or otherwise communicate (voice, body, sound, signal), and how it narrows under load
-    "relations": string     // how they stand with the others, and the picture they hold of each
+    "kind": string,       // what sort of being it is
+    "like": string,       // what they are like
+    "want": string,       // what they are after right now
+    "abilities": string,  // what they can and can't do, if it matters to the story, or ""
+    "speech": string,     // how they talk or otherwise communicate
+    "relations": string   // how they stand with the others
   }],
-  "texture": string         // 4-8 sentences
+  "world": string,        // 3-6 sentences
+  "aim": string           // 1-3 sentences
 }`,
   ]
     .filter((x) => x !== "")
@@ -21646,7 +21623,7 @@ function outlineContext(n) {
     GROUND,
     `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
     n.styleGuide && `STYLE: ${n.styleGuide}`,
-    n.texture && `WHERE THE TONE COMES FROM:${NL}${n.texture}`,
+    n.texture && `THE WORLD, AND WHAT THE BOOK IS AFTER:${NL}${n.texture}`,
     n.referenceText && !n.charterVerbatim ? `REFERENCE MATERIAL:${NL}${n.referenceText.slice(0, 12e3)}` : "",
     n.premise && !n.charterVerbatim ? `THE AUTHOR'S BRIEF:${NL}${n.premise}` : "",
     n.characters.length ? `THE CHARACTERS:${NL}${n.characters.map(groundLine).join(NL)}` : "",
@@ -21733,16 +21710,14 @@ function _f(n, a, s) {
     .join(NL);
 }
 function dE() {
-  return `You are an editor reading a new chapter of a novel against what came before it. Report only real problems a reader would notice. Reply with a JSON object only.
-
-${GROUND}`;
+  return `You read a new chapter of a novel the way its reader would, straight after what came before it, and say where it lost you. Report only what a reader would actually notice. Reply with a JSON object only.`;
 }
 function mE(n, a, s, l) {
   const prev = s > 0 ? n.chapters[s - 1]?.state.final || "" : "",
     tail = prev ? prev.split(/\s+/).slice(-1200).join(" ") : "",
     pb = peopleBlock(n, s, a.cast),
     unmet = s > 0 ? unmetCast(n, s) : [];
-  return `${n.characters.length ? `THE CHARACTERS:\n${n.characters.map(groundLine).join(NL)}\n\n` : ""}${n.texture ? `WHERE THE TONE COMES FROM: ${n.texture}\n\n` : ""}${tail ? `THE END OF THE PREVIOUS CHAPTER:\n${tail}\n\n` : ""}STYLE: ${n.styleGuide || "(not given)"}
+  return `${n.characters.length ? `THE CHARACTERS:\n${n.characters.map(groundLine).join(NL)}\n\n` : ""}${n.texture ? `THE WORLD, AND WHAT THE BOOK IS AFTER: ${n.texture}\n\n` : ""}${tail ? `THE END OF THE PREVIOUS CHAPTER:\n${tail}\n\n` : ""}STYLE: ${n.styleGuide || "(not given)"}
 
 THE PLAN FOR THIS CHAPTER:
 ${a.summary}
@@ -21756,15 +21731,14 @@ ${pb ? `\nWHERE THE CHARACTERS STOOD BEFORE THIS CHAPTER:\n${pb}\n` : ""}${unmet
 ${l}
 === END OF DRAFT ===
 
-Read the draft as an editor would. Reply with this JSON:
+Read the draft as its reader. Reply with this JSON:
 {
   "beats": [{ "i": number, "covered": boolean, "note": string }],   // one per planned beat
   "entryContinuous": boolean,   // does it follow on from the end of the previous chapter without a gap the reader can't account for?
   "exitDelivered": boolean,
   "continuityErrors": string[], // things that contradict the previous chapter or the facts, including anyone called by a name the reader was never given. [] if none
   "characterBreaks": string[],  // up to 4 places where someone acts in a way that makes no sense for them or for what has happened so far. Quote the line. [] if none
-  "groundBreaks": string[],     // up to 4 places where a being doesn't work the way described above: an animal or other non-human written as a human in a costume; someone braced reads others accurately; a pattern stops firing because the scene turned sad or it was convenient; a cold character is warmed, or how they are made is explained as a wound; someone is freed or changed by being told about themselves; someone narrates their own inner workings; a letting-go with nothing built up to it, or one that turns them into someone new; the tone stated or performed instead of coming out of the characters. Quote the line. [] if none
-  "onTheNose": string[],        // up to 5 exact short quotes where a feeling or the meaning is stated outright. [] if none
+  "lostMe": string[],           // up to 4 places where you, reading, stopped believing it or stopped caring. Quote the line and say what happened in you there. [] if none
   "dialogueIssues": string[],   // up to 3, only if true. [] if fine
   "styleBreaks": string[],      // up to 3 exact short quotes that don't fit the style. [] if none
   "notes": string               // if something above failed: what to fix. Otherwise ""
@@ -21795,7 +21769,7 @@ function gE(n, a, s, l) {
   ].join(NL);
 }
 function co() {
-  return "You keep the records for a novel while it is being written. After each chapter you write down, in short plain sentences, what happened and where everyone stands. You do not write prose or give opinions. Reply with a JSON object only.";
+  return "You keep the records for a novel while it is being written. After each chapter you write down, in short plain sentences, what happened and the facts of where everyone is. You do not write prose or give opinions. Reply with a JSON object only.";
 }
 function p0(n, a, s, l) {
   const o = n.chapters[s + 1],
@@ -21828,16 +21802,10 @@ Reply with this JSON:
     "name": string,
     "called": string,           // every name or label the text has used for them so far, including this chapter (a nickname someone gave them counts); say so if their own name hasn't been given on the page
     "where": string,            // where they are at the end of the chapter
-    "state": string,            // their physical and emotional condition now, in plain words
-    "grip": string,             // how tight they are at the end: open, settled, guarded, braced, clenched or breaking
-    "holding": string,          // what they are clutching or retelling to themselves now, or ""
-    "misreads": string,         // who they are reading wrong at the end, and as what, or ""
-    "fired": string,            // which of their patterns ran in this chapter, or ""
-    "released": string,         // anything they let go of in this chapter and how it happened, or ""
+    "state": string,            // their condition at the end: injuries, what they have with them, what they are in the middle of
     "knows": string[],          // things they learned in this chapter (not what the reader learned)
-    "wants": string,            // what they want now
-    "changed": string,          // how they changed in this chapter, or ""
-    "relations": string,        // any change in how they stand with someone, or ""
+    "wants": string,            // what they are after now
+    "relations": string,        // any change in how they stand with someone: allies, enemies, debts, promises, or ""
     "gone": string              // "dead", "left the story", etc. if they are out of the story; otherwise ""
   }],
   "threadOps": [{ "op": "open"|"advance"|"resolve", "name": string, "note": string }],
@@ -22460,7 +22428,8 @@ Continue the chapter from exactly where it stops. Start with the very next chara
         role: t(s?.role),
         want: t(s?.want),
         wound: t(s?.wound),
-        voice: t(s?.voice),
+        voice: t(s?.voice) || t(s?.like),
+        abilities: t(s?.abilities) || void 0,
         arc: t(s?.arc),
         speech: t(s?.speech) || void 0,
         need: t(s?.need) || void 0,
@@ -22494,7 +22463,10 @@ Continue the chapter from exactly where it stops. Start with the very next chara
     const l = await this.jsonCall(a, "Cast", planModel(a), uE(), fE(a), 3e3, (d) => Array.isArray(d?.characters), {
       temperature: 0.7,
     });
-    (this.mergeCast(a, this.normalizeCharacters(l?.characters)), Rt(l?.texture) && (a.texture = Rt(l.texture)));
+    const world = Rt(l?.world),
+      aim = Rt(l?.aim),
+      tx = [world, aim && `What the book is after: ${aim}`].filter(Boolean).join(`${NL}${NL}`) || Rt(l?.texture);
+    (this.mergeCast(a, this.normalizeCharacters(l?.characters)), tx && (a.texture = tx));
     const th = {},
       o = {
         question: Rt(th.question),
@@ -22890,7 +22862,6 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
         try {
           const v = o.verify || {},
             extra = [
-              ...(v.onTheNose || []).map((q) => ({ quote: q, why: `states a feeling, theme or lesson outright ("${q}"); show it through what the person does or says instead` })),
               ...(v.styleBreaks || []).map((q) => ({ quote: q, why: `doesn't fit the style guide ("${q}"); match its audience, vocabulary and sentence length` })),
             ];
           o.draft = await this.lineFix(a, s, o.draft, o.wroteWith || f, extra);
@@ -22948,12 +22919,11 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       entryContinuous: s?.entryContinuous !== !1,
       continuityErrors: Ie(s?.continuityErrors),
       characterBreaks: Ie(s?.characterBreaks).slice(0, 4),
-      groundBreaks: Ie(s?.groundBreaks).slice(0, 4),
+      lostMe: Ie(s?.lostMe).slice(0, 4),
       verdict: "pass",
       notes: Rt(s?.notes),
       exitDelivered: s?.exitDelivered !== !1,
       turned: s?.turned !== !1,
-      onTheNose: Ie(s?.onTheNose).slice(0, 5),
       dialogueIssues: Ie(s?.dialogueIssues).slice(0, 3),
       styleBreaks: Ie(s?.styleBreaks).slice(0, 3),
     };
@@ -22965,14 +22935,10 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
     l.entryContinuous || c.push("The opening doesn't follow on from the end of the previous chapter.");
     for (const d of l.continuityErrors) c.push(`Continuity: ${d}`);
     for (const d of l.characterBreaks || []) c.push(`Doesn't make sense: ${d}`);
-    for (const d of l.groundBreaks || []) c.push(`Not how beings work: ${d}`);
+    for (const d of l.lostMe || []) c.push(`A reader lost it here: ${d}`);
     f && !l.exitDelivered && c.push(`The plan ends the chapter here: ${s.exitHook}`);
     // Style notes alone never buy a full rewrite: the line fix handles them paragraph by paragraph.
     if (!c.length) return null;
-    l.onTheNose?.length &&
-      c.push(
-        `Lines that state the meaning outright:${NL}${l.onTheNose.map((d) => `  "${d}"`).join(NL)}`,
-      );
     l.dialogueIssues?.length &&
       c.push(
         `Dialogue: ${l.dialogueIssues.join("; ")}`,
@@ -23002,14 +22968,8 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
           called: Rt(p?.called),
           where: Rt(p?.where),
           state: Rt(p?.state),
-          grip: Rt(p?.grip),
-          holding: Rt(p?.holding),
-          misreads: Rt(p?.misreads),
-          fired: Rt(p?.fired),
-          released: Rt(p?.released),
           knows: Ie(p?.knows).slice(0, 6),
           wants: Rt(p?.wants),
-          changed: Rt(p?.changed),
           relations: Rt(p?.relations),
           gone: Rt(p?.gone),
         }))
@@ -23038,7 +22998,7 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
         p = { name: c ? c.name : e.name, log: [] };
         a.bible.people.push(p);
       }
-      p.log.push({ ch: s, called: e.called, where: e.where, state: e.state, grip: e.grip, holding: e.holding, misreads: e.misreads, fired: e.fired, released: e.released, knows: e.knows, wants: e.wants, changed: e.changed, relations: e.relations, gone: e.gone });
+      p.log.push({ ch: s, called: e.called, where: e.where, state: e.state, knows: e.knows, wants: e.wants, relations: e.relations, gone: e.gone });
       p.log.sort((x, y) => x.ch - y.ch);
     }
   }
@@ -30027,7 +29987,7 @@ ${s.scene} (${s.location}, ${s.time}). Open: ${s.openBeat}`
         ? `
 === WHERE EACH PERSON ENDED UP ===
 ${peopleNow(n, 1 / 0)
-  .map((l) => `- ${l.name}${l.gone ? ` (${l.gone})` : ""}: ${[l.where, l.state, l.grip && `grip: ${l.grip}`, l.holding && `holding ${l.holding}`, l.wants && `wants ${l.wants}`, l.changed.length && `changed: ${l.changed.join("; ")}`].filter(Boolean).join(". ")}`)
+  .map((l) => `- ${l.name}${l.gone ? ` (${l.gone})` : ""}: ${[l.where, l.state, l.wants && `wants ${l.wants}`].filter(Boolean).join(". ")}`)
   .join(`
 `)}`
         : "",
@@ -34533,12 +34493,12 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
               children: [
                 g.jsx("h3", {
                   className: "text-[13px] font-semibold text-vellum/70 uppercase tracking-wider mb-1",
-                  children: "Where the tone comes from",
+                  children: "The world, and what the book is after",
                 }),
                 g.jsx("p", {
                   className: "text-[12px] text-vellum/45 leading-snug mb-2",
                   children:
-                    "Worked out by the planner from these characters and this situation before writing. The writer follows it and never states it. Edit it and later chapters follow.",
+                    "The planner's notes on the world and on what the author wants a reader to feel. The writer and the editor read it. Edit it and later chapters follow.",
                 }),
                 g.jsx("textarea", {
                   className: "field !py-2 text-[13px] min-h-[96px]",
@@ -34561,7 +34521,7 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
                 g.jsx("p", {
                   className: "text-[12px] text-vellum/45 leading-snug mb-2.5",
                   children:
-                    "Updated after every chapter: how tight each character is, what it's holding, who it misreads, what it let go of, where it is and what it knows. The writer gets this before each chapter; the editor flags any character that stops working the way it works. Edit the notes and later chapters follow.",
+                    "Notes on each character, and after every chapter the facts of where it is, what it knows and what it's after. The writer gets these before each chapter. Edit the notes and later chapters follow.",
                 }),
                 g.jsx("div", {
                   className: "space-y-2",
@@ -34596,17 +34556,9 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
                           g.jsxs("div", {
                             className: "mt-2 space-y-1.5 text-[12px] text-vellum/60 leading-snug",
                             children: [
-                              E?.grip &&
+                              E?.called &&
                                 g.jsxs("p", {
-                                  children: [g.jsx("span", { className: "text-vellum/35", children: "Grip: " }), E.grip, E.holding ? ` · holding ${E.holding}` : ""],
-                                }),
-                              E?.misreads &&
-                                g.jsxs("p", {
-                                  children: [g.jsx("span", { className: "text-vellum/35", children: "Misreads: " }), E.misreads],
-                                }),
-                              E?.released.length > 0 &&
-                                g.jsxs("p", {
-                                  children: [g.jsx("span", { className: "text-vellum/35", children: "Let go of: " }), E.released.join("; ")],
+                                  children: [g.jsx("span", { className: "text-vellum/35", children: "Called on the page: " }), E.called],
                                 }),
                               E?.wants &&
                                 g.jsxs("p", {
@@ -34616,26 +34568,16 @@ function Sk({ project: n, onChange: a, onPaintCast: s }) {
                                 g.jsxs("p", {
                                   children: [g.jsx("span", { className: "text-vellum/35", children: "Knows: " }), E.knows.join("; ")],
                                 }),
-                              E?.changed.length > 0 &&
-                                g.jsxs("p", {
-                                  children: [g.jsx("span", { className: "text-vellum/35", children: "Changed: " }), E.changed.join("; ")],
-                                }),
                               E?.rel.length > 0 &&
                                 g.jsxs("p", {
                                   children: [g.jsx("span", { className: "text-vellum/35", children: "Relationships: " }), E.rel.join("; ")],
                                 }),
                               [
-                                ["kind", "What it is, how it perceives"],
+                                ["kind", "What it is"],
+                                ["voice", "What they are like"],
                                 ["want", "Wants"],
-                                ["grip", "Holds onto"],
-                                ["fears", "Most afraid of"],
-                                ["rest", "Resting state"],
-                                ["style", "Usual way of being stuck"],
-                                ["underThreat", "Under threat"],
-                                ["conscience", "Others' pain"],
-                                ["patterns", "Patterns that fire"],
-                                ["wrongAbout", "Wrong about"],
-                                ["speech", "How it talks or communicates"],
+                                ["abilities", "Can and can't do"],
+                                ["speech", "How they talk"],
                                 ["relations", "With the others"],
                               ].map(([C, M]) =>
                                 g.jsxs(
