@@ -1,3 +1,8 @@
+# Bindery patch — October 17, 2026 (12): long books keep the voice of chapter 1
+The bundle is now index-7b9fb05c.js.
+1. In a long book the writer saw the earlier chapters only as summaries once the book outgrew the window. Summaries keep what happened but not how it was told, so each chapter took its voice from the last few, and the prose slid toward the model's default as the book went on.
+2. Once chapter 1 has been summarized, its opening (whole paragraphs, about 900 words) goes to the writer word for word, ahead of the summaries, as how this book sounds. It is marked as there for its voice and not its events.
+3. The space for the opening comes out of the book-so-far budget, so the prompt does not grow. It sits at the front of the book-so-far and stays the same from chapter to chapter, so providers that cache prompts reuse it. Short books, which still fit whole, are unchanged.
 # Bindery patch — September 29, 2026 (11): long books no longer stall at the architect page
 The bundle is now index-0361dedf.js.
 1. A 40-chapter book made its cast and then sat on "Drawing the architecture…". Every planning call was a single request that the app cut off after 5 minutes. A batch of 8 detailed chapters can take longer than that on a slow model, and each cut-off was retried up to six times with nothing on screen, so one batch could hang for half an hour.
