@@ -21140,11 +21140,28 @@ function S1(n) {
     .filter(Boolean)
     .join(`${NL}${NL}`);
 }
+// The opening of chapter 1, whole paragraphs up to about `words`. Once chapter 1 is only a summary,
+// this is what keeps the writer hearing the book's own voice instead of drifting to its default.
+function voiceAnchor(text, words = 900) {
+  const out = [];
+  let w = 0,
+    len = 0;
+  for (const p of text.trim().split(/\n\s*\n/)) {
+    const t = p.trim();
+    if (w >= words || (out.length && len + t.length > 7e3)) break;
+    t && (out.push(t.slice(0, 7e3)), (w += Oe(t)), (len += t.length));
+  }
+  return out.join(`${NL}${NL}`);
+}
 function manuscript(n, s, budget = 6e4) {
   const done = n.chapters
     .slice(0, s)
     .map((c, i) => ({ c, i }))
-    .filter((x) => x.c.state.final);
+    .filter((x) => x.c.state.final),
+    anchor = done[0]?.i === 0 ? voiceAnchor(done[0].c.state.final) : "";
+  anchor &&
+    done.reduce((t, x) => t + Math.ceil(Oe(x.c.state.final) * 1.4), 0) > budget &&
+    (budget -= Math.ceil(Oe(anchor) * 1.4));
   let used = 0,
     from = done.length;
   for (let k = done.length - 1; k >= 0; k--) {
@@ -21156,6 +21173,10 @@ function manuscript(n, s, budget = 6e4) {
     full = done.slice(from),
     parts = [];
   if (early.length) {
+    anchor &&
+      parts.push(
+        `HOW THIS BOOK SOUNDS. The opening of chapter 1, exactly as it was written. It is here for its voice, not its events (those are in the summary below). Keep writing in this voice:${NL}${NL}${anchor}`,
+      );
     const sy = early.map(({ i }) => n.bible.synopses.find((y) => y.ch === i)).filter(Boolean);
     parts.push(
       `EARLIER CHAPTERS, IN SUMMARY:${NL}${[...(sy.length < early.length ? n.bible.actSummaries : []), ...sy.map((y) => `Ch ${y.ch + 1}: ${y.text}`)].join(NL)}`,
