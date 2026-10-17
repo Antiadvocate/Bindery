@@ -21126,7 +21126,7 @@ Calm is not kindness. Some beings feel others' pain barely or not at all: calm m
 Things that aren't aware (weather, stones, tools, a mindless machine) don't grip anything; they are simply how the world appears to the beings that do.
 
 The tone the author asked for is not added on top. It comes out of these beings, with these grips, meeting this situation.`;
-const WRITING_RULES = `Write each scene from inside the people living it, in the world as it is, and keep everything consistent with what has already happened in the book.`;
+const WRITING_RULES = `Write each scene from inside the people living it, in the world as it is, and keep everything consistent with what has already happened in the book. When someone is in danger, fighting or rushing, stay with what they see, hear and do: thoughts come in fragments if at all, and nobody stops to reflect until it is over. Don't explain why anyone does what they do or what it means; the reader works it out from what they did. Everyone in a scene is after their own things and acts on them, the opponent most of all: nobody is there only to help or block the main character.`;
 function S1(n) {
   return [
     "You are writing a novel, one chapter at a time. Each reply is the text of one chapter and nothing else: no title, no heading, no notes.",
@@ -21218,7 +21218,7 @@ function unmetCast(n, beforeCh) {
   const seen = (n.bible.people || []).filter((p) => (p.log || []).some((e) => e.ch < beforeCh));
   return n.characters.map((c) => c.name).filter((x) => x && !seen.some((p) => sameName(x, p.name)));
 }
-function peopleBlock(n, beforeCh, onStage) {
+function peopleBlock(n, beforeCh, onStage, pov) {
   const all = peopleNow(n, beforeCh);
   if (!all.length) return "";
   const inStage = (p) => (onStage || []).some((x) => sameName(x, p.name));
@@ -21226,15 +21226,16 @@ function peopleBlock(n, beforeCh, onStage) {
   return all
     .slice(0, 14)
     .map((p, i) => {
-      const full = i < 8 || inStage(p);
+      const full = i < 8 || inStage(p),
+        inside = !pov || povIs(p.name, pov);
       return [
         `- ${p.name} (last seen ch ${p.lastCh + 1})${p.gone ? `: ${p.gone}` : ""}.`,
         p.called && `Called on the page so far: ${p.called}.`,
         p.where && `Where: ${p.where}.`,
         p.state && `State: ${p.state}.`,
-        p.wants && `Wants now: ${p.wants}.`,
-        full && p.knows.length ? `Knows: ${p.knows.join("; ")}.` : "",
-        full && p.rel.length ? `Relationships: ${p.rel.join("; ")}.` : "",
+        inside && p.wants && `Wants now: ${p.wants}.`,
+        inside && full && p.knows.length ? `Knows: ${p.knows.join("; ")}.` : "",
+        inside && full && p.rel.length ? `Relationships: ${p.rel.join("; ")}.` : "",
       ]
         .filter(Boolean)
         .join(" ");
@@ -21665,7 +21666,7 @@ function designPrompt(n) {
     "",
     "You are about to write this book. The understanding above is yours: it is how you see these beings. It stays with you. None of its words or ideas go into your notes, and the book is not about it.",
     "",
-    "Make your notes on the main characters (3 to 8), whatever they are, the way a novelist jots notes for themselves before starting, in ordinary words. If a character comes from an existing film, book or game, it is exactly who it is there. Invented characters get names that fit the setting and what they are. Nobody has an arc decided in advance: what happens to them comes from what they meet.",
+    "Make your notes on the main characters (3 to 8), whatever they are, the way a novelist jots notes for themselves before starting, in ordinary words. If a character comes from an existing film, book, comic or game, it is exactly who it is there: the same powers and limits, the same beliefs, the same way of talking, unless the brief changes it. Invented characters get names that fit the setting and what they are. Nobody has an arc decided in advance: what happens to them comes from what they meet.",
     "",
     'Then note the world: what it is like to live in, what its people take for granted, what they fear and how they treat what they don\'t understand. If it comes from an existing film, book or game, it is exactly as it is there. And note what the book is after: what the author wants a reader to feel, going by the brief and the genre.',
     "",
@@ -21675,7 +21676,7 @@ function designPrompt(n) {
     "name": string, "role": string,
     "kind": string,       // what sort of being it is
     "like": string,       // what they are like
-    "want": string,       // what they are after right now
+    "want": string,       // what they are after right now, for their own reasons: what they would be doing even if the main character never showed up
     "abilities": string,  // what they can and can't do, if it matters to the story, or ""
     "speech": string,     // how they talk or otherwise communicate
     "relations": string   // how they stand with the others
@@ -21703,7 +21704,7 @@ function outlineContext(n) {
     .filter(Boolean)
     .join(`${NL}${NL}`);
 }
-const PLOT_RULES = `Plan it the way a good novelist plans a book before writing it: situations that press on these particular beings' grips, and what they do about it, in a world that works the way it works. Events follow from what they do, and the book builds to an ending that pays off the brief. Don't decide in advance who learns or softens; plan the pressure, not the lesson.`;
+const PLOT_RULES = `Plan it the way a good novelist plans a book before writing it: situations that press on these particular beings' grips, and what they do about it, in a world that works the way it works. Events follow from what they do, and the book builds to an ending that pays off the brief. Don't decide in advance who learns or softens; plan the pressure, not the lesson. Every obstacle comes from someone or something acting for its own reasons. An opponent is good at what they do and has a plan that makes sense from where they stand; they would be carrying it out even if the main character never showed up. Nobody becomes weaker, slower or less clever than they have been shown to be just so a scene can happen; if a rule bends, the story shows why. Fights and arguments are between sides that want things the other won't give, and they don't all end in agreement.`;
 function m0(n, a = !1) {
   return `${outlineContext(n)}
 
@@ -21729,6 +21730,30 @@ Output JSON:
   "threads": [{ "name": string, "note": string, "payoff": number }],
   "newCharacters": [{ "name": string, "role": string, "want": string, "speech": string }]
 }`;
+}
+// One point of view unless the author asked for more: the writer then gets only that person's
+// thoughts and wants, and everyone else as they look from outside.
+function oneView(n) {
+  return !/omniscient|multiple (?:points? of view|perspectives|viewpoints|povs?)|head[- ]?hop/i.test([n.premise, n.styleGuide, ...(n.charter || [])].join(" "));
+}
+function povIs(name, pov) {
+  const a = String(name || "").toLowerCase(),
+    b = String(pov || "").toLowerCase();
+  return !!a && !!b && (sameName(name, pov) || b.includes(a) || a.includes(b));
+}
+function planCheckSystem() {
+  return "You read a novel's plan before it is written and find where the story only works because the plan needs it to. Reply with a JSON object only.";
+}
+function planCheckPrompt(n, plan) {
+  return [
+    `THE AUTHOR'S REQUIREMENTS:${NL}${numList(n.charter)}`,
+    n.premise && !n.charterVerbatim ? `THE AUTHOR'S BRIEF:${NL}${n.premise.slice(0, 6e3)}` : "",
+    n.characters.length ? `THE CHARACTERS:${NL}${n.characters.map(groundLine).join(NL)}` : "",
+    `THE PLAN:${NL}${plan}`,
+    "Read this plan the way a sharp reader would, before a word of it is written. Find the places where the story only works because the plan needs it to:\n1. Someone weaker, slower, less clever or less informed than they are in this book, or in the story they come from, just so a scene can happen. A rule may bend if the brief wants it to, but then the plan has to show why it bends.\n2. Someone, the opponent most of all, doing something only because the main character needs it to happen, with no reason of their own.\n3. Something that happens without a cause: a trap, a coincidence or a reveal that nothing earlier sets up.\n4. A lesson or change the plot hands over, or someone says out loud, instead of coming from what a character tried and what it cost them.\n5. A fight or argument that ends with everyone agreeing when the sides want things the other won't give.\nFix only the chapters that have one of these. A fix keeps the chapter's place in the book, the author's requirements and the planned ending; it changes what happens there so that it makes sense.\n\nReply with this JSON:\n{ \"fixes\": [{ \"chapter\": number, \"problem\": string, \"summary\": string, \"beats\": string[], \"exitHook\": string }] }   // \"fixes\": [] if the plan holds up",
+  ]
+    .filter(Boolean)
+    .join(`${NL}${NL}`);
 }
 const uE = designSystem;
 const fE = designPrompt;
@@ -21763,11 +21788,15 @@ function _f(n, a, s) {
     unmet = s > 0 ? unmetCast(n, s) : [];
   return [
     m.summarized && n.bible.canon.length ? `FACTS FROM THE SUMMARIZED CHAPTERS:${NL}${bullets(canonFor(n, 50, a))}` : "",
-    peopleBlock(n, s, a.cast) && `WHERE EACH CHARACTER IS NOW, going into this chapter:${NL}${peopleBlock(n, s, a.cast)}`,
+    peopleBlock(n, s, a.cast, oneView(n) ? a.pov : "") &&
+      `WHERE EACH CHARACTER IS NOW, going into this chapter:${NL}${peopleBlock(n, s, a.cast, oneView(n) ? a.pov : "")}`,
     open.length ? `STORY THREADS STILL OPEN: ${open.map((c) => c.name).join("; ")}` : "",
     unmet.length ? `NOT IN THE BOOK YET (the reader hasn't met them or heard their names): ${unmet.join(", ")}` : "",
     "",
     `NEXT: ${Ho(a, s, n.chapters.length || n.numChapters, n.targetWords)}`,
+    oneView(n) && a.pov
+      ? `Only ${a.pov}'s thoughts and feelings are on the page in this chapter. Everyone else shows in what they say and do, as ${a.pov} sees it.`
+      : "",
     s > 0
       ? "The plan was written before the book was started. Where the story so far has gone differently, follow the story and keep it making sense; the plan only says roughly where things go."
       : "",
@@ -22543,6 +22572,7 @@ Continue the chapter from exactly where it stops. Start with the very next chara
   async designStory(a) {
     const l = await this.jsonCall(a, "Cast", planModel(a), uE(), fE(a), 3e3, (d) => Array.isArray(d?.characters), {
       temperature: 0.7,
+      webSearch: a.settings.webSearch,
     });
     const world = Rt(l?.world),
       aim = Rt(l?.aim),
@@ -22590,6 +22620,7 @@ Continue the chapter from exactly where it stops. Start with the very next chara
           );
         this.applyOutline(a, c, rn(c?.chapters));
       } else await this.buildOutlineBatched(a, s, l);
+      await this.planCheck(a);
       const ill = a.settings.autoIllustrate === "scene" || a.settings.autoIllustrate === "words";
       if (ill && !a.codex)
         try {
@@ -22779,6 +22810,27 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
           openedIn: 0,
           payoffIn: pay >= 1 && pay <= a.numChapters ? pay - 1 : void 0,
         });
+    }
+  }
+  // Reads the finished outline before any prose for things that only happen because the plan needs
+  // them to, and re-plans just those chapters. A failed check is skipped, never blocks the book.
+  async planCheck(a) {
+    if (!a.chapters.length) return;
+    try {
+      const plan = a.chapters
+          .map((c, i) => `Ch ${i + 1}: ${c.title}. ${c.summary}${c.beats?.length ? ` Beats: ${c.beats.join("; ")}.` : ""}${c.pov ? ` Point of view: ${c.pov}.` : ""}`)
+          .join(NL),
+        res = await this.jsonCall(a, "Plan check", planModel(a), planCheckSystem(), planCheckPrompt(a, plan), xr(450 * Math.min(a.chapters.length, 12) + 1500), (d) => Array.isArray(d?.fixes));
+      for (const f of rn(res?.fixes).slice(0, 12)) {
+        const c = a.chapters[Math.round(Number(f?.chapter)) - 1],
+          s = Rt(f?.summary).trim(),
+          b = Ie(f?.beats),
+          x = Rt(f?.exitHook).trim();
+        c && s && ((c.summary = s), b.length && (c.beats = b), x && (c.exitHook = x));
+      }
+      this.emit(a);
+    } catch (d) {
+      if (/Paused|abort/i.test(String(d?.message || d))) throw d;
     }
   }
   async write(a) {
@@ -31707,7 +31759,7 @@ function ik({
                 className: "flex items-center justify-between",
                 children: [
                   g.jsx(Pt, {
-                    hint: "Let the architect look things up on the web while writing the charter and outline (OpenRouter's web search; each search costs a little extra).",
+                    hint: "Let the architect look things up on the web while writing the charter, the characters and the outline, so characters from existing stories come out as they are there (OpenRouter's web search; each search costs a little extra).",
                     children: "Research mode",
                   }),
                   g.jsx("input", {
