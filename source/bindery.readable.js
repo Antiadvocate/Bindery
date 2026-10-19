@@ -22304,6 +22304,15 @@ function NE(n, a) {
   return n;
 }
 const planModel = (a) => a.settings.architectModel || a.settings.proseModel;
+// A plan in progress is saved after every step (charter, cast, skeleton, each outline batch), so
+// a page that iOS closes mid-outline picks up where it stopped. Editing the brief starts it over.
+const planKey = (a) => {
+  const t = JSON.stringify([a.premise, a.referenceText, a.styleNotes, a.voiceSample, a.numChapters, a.targetWords]);
+  let h = 0;
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+  return String(h);
+};
+const planDraft = (a) => (a.planDraft?.key === planKey(a) ? a.planDraft : null);
 const xr = (n) => Math.max(1200, Math.min(16e3, Math.round(n)));
 const fallbacksOf = (a) =>
   (a.settings.fallbackModels || [])
@@ -22350,6 +22359,11 @@ class ME {
   }
   signal() {
     return ((this.abort = new AbortController()), this.abort.signal);
+  }
+  // Written straight to storage: the debounced save never fires while a reply is streaming.
+  async checkpoint(a, step) {
+    (step && Object.assign((a.planDraft = planDraft(a) || { key: planKey(a) }), step), this.emit(a));
+    await da(a).catch(() => {});
   }
   async jsonCall(a, s, l, o, f, c, d, opt = {}) {
     this.guard(a);
@@ -22453,6 +22467,12 @@ Continue the chapter from exactly where it stops. Start with the very next chara
     return lastWhole(cleanProse(text));
   }
   async buildCharter(a) {
+    if (planDraft(a)?.charter) return;
+    a.planDraft = void 0;
+    await this.buildCharterNow(a);
+    await this.checkpoint(a, { charter: !0 });
+  }
+  async buildCharterNow(a) {
     const s = planModel(a);
     let l;
     try {
@@ -22562,21 +22582,30 @@ Continue the chapter from exactly where it stops. Start with the very next chara
   async buildOutline(a) {
     this.running = !0;
     try {
-      try {
-        await this.designStory(a);
-      } catch (d) {
-        if (/Paused|abort/i.test(String(d?.message || d))) throw d;
+      if (!planDraft(a)?.cast) {
+        try {
+          await this.designStory(a);
+        } catch (d) {
+          if (/Paused|abort/i.test(String(d?.message || d))) throw d;
+        }
+        await this.checkpoint(a, { cast: !0 });
       }
-      if (a.voiceSample?.trim() && (!a.voiceLock || vlAuto(a)))
+      if (!planDraft(a)?.voice && a.voiceSample?.trim() && (!a.voiceLock || vlAuto(a))) {
         try {
           const l = await this.jsonCall(a, "Voice lock", a.settings.editorModel, wE(), SE(a.voiceSample), 900),
             o = Ie(l?.laws);
           o.length && ((a.voiceLock = o.map((x) => `- ${x}`).join(NL)), (a.voiceLockAuto = !1));
-        } catch {}
+        } catch (d) {
+          if (/Paused|abort/i.test(String(d?.message || d))) throw d;
+        }
+        await this.checkpoint(a, { voice: !0 });
+      }
       const s = planModel(a),
         l = a.targetWords <= 700,
         o = l ? 200 : 820;
-      if (a.numChapters <= (l ? 24 : 14)) {
+      // One call only while its reply stays around 6k tokens. Past that the outline goes out in
+      // small batches, each saved as it lands, so no single wait runs to several minutes.
+      if (a.numChapters <= (l ? 20 : 5)) {
         const f = a.numChapters,
           c = await this.jsonCall(
             a,
@@ -22602,7 +22631,7 @@ Continue the chapter from exactly where it stops. Start with the very next chara
         } catch {}
         a.chapters[0] && (a.chapters[0].state.stage = "pending");
       }
-      ((a.phase = "outline"), this.emit(a));
+      ((a.planDraft = void 0), (a.phase = "outline"), this.emit(a));
     } finally {
       this.running = !1;
     }
@@ -22678,6 +22707,8 @@ The book has ${n} chapters and only ${f.length} are planned. Return ONLY chapter
     return { seeds: f, plan };
   }
   async buildOutlineBatched(a, s, l = !1) {
+    const saved = planDraft(a);
+    if (saved?.seeds) return this.outlineBatches(a, s, l, saved.seeds, saved.plan || {}, saved.chapters || []);
     let o = await this.jsonCall(
         a,
         "Outline · skeleton",
@@ -22697,12 +22728,14 @@ The book is long (${a.numChapters} chapters), so for now return only the skeleto
         (m) => this.pickSeeds(m).seeds.length > 0,
         { temperature: 0.6, webSearch: a.settings.webSearch },
       );
-    const top = await this.topUpSeeds(a, s, Tf(), `${outlineContext(a)}\n\n${PLOT_RULES}`, o),
-      f = top.seeds;
-    o = top.plan;
-    const c = [],
-      d = 8;
-    for (let m = 0; m < a.numChapters; m += d) {
+    const top = await this.topUpSeeds(a, s, Tf(), `${outlineContext(a)}\n\n${PLOT_RULES}`, o);
+    await this.checkpoint(a, { seeds: top.seeds, plan: { threads: top.plan.threads, newCharacters: top.plan.newCharacters, characters: top.plan.characters }, chapters: [] });
+    return this.outlineBatches(a, s, l, top.seeds, a.planDraft.plan, []);
+  }
+  async outlineBatches(a, s, l, f, o, done) {
+    const c = done.slice(),
+      d = l ? 12 : 4;
+    for (let m = c.length; m < a.numChapters; m += d) {
       if (!this.running) throw new Error("Paused");
       const p = f.slice(m, m + d),
         x = c.length ? c[c.length - 1].exitHook : "",
@@ -22732,7 +22765,10 @@ Output JSON: { "chapters": [{ "title": string, "summary": string, "beats": strin
       (rn(v?.chapters)
         .slice(0, p.length)
         .forEach((S, k) => c.push(this.normalizeChapter(S, m + k))),
-        this.emit(a));
+        await this.checkpoint(a, { chapters: c.slice() }));
+      // A batch that came back one short: the next batch starts at the first missing chapter,
+      // so every chapter keeps its number.
+      c.length < m + p.length && (m = c.length - d);
     }
     this.applyOutline(a, o, null, c);
   }
@@ -31759,13 +31795,17 @@ function ik({
           ),
           children: [
             g.jsx(u_, { size: 18, className: o ? "animate-pulse" : "" }),
-            o ? f : "Architect the book",
+            o ? f : planDraft(c) ? resumeLabel(c) : "Architect the book",
           ],
         }),
       }),
     ],
   });
 }
+const resumeLabel = (a) => {
+  const d = planDraft(a);
+  return d.seeds ? `Resume the outline (${d.chapters?.length || 0} of ${a.numChapters} planned)` : d.cast ? "Resume the outline" : "Resume: the charter is done";
+};
 const sk = 1.45;
 async function rk(n) {
   const a = await g1().catch(() => null);
@@ -35505,7 +35545,7 @@ function kk() {
           !0),
     dt = async () => {
       if (!(!I || K())) {
-        z(null);
+        (z(null), Z());
         try {
           (C("charter"),
             await J.buildCharter(I),
@@ -35514,7 +35554,14 @@ function kk() {
             C(""),
             d("plan"));
         } catch (W) {
-          (C(""), x({ msg: String(W.message || W), tone: "error" }));
+          const msg = String(W.message || W);
+          (C(""),
+            x({
+              msg: planDraft(I) && /network|fetch|Load failed|aborted|StreamStall|timed out/i.test(msg) ? "The connection dropped. What was planned is saved: tap Resume to go on from there." : msg,
+              tone: "error",
+            }));
+        } finally {
+          X();
         }
       }
     },

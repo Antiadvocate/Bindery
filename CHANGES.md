@@ -1,3 +1,10 @@
+# Bindery patch — October 19, 2026 (13): the outline survives iOS closing the app
+The bundle is now index-056e8de9.js.
+1. On a phone the outline never finished. Leaving the app, even briefly, cut the connection, and iOS often closed the page; everything planned so far lived only in memory, so the next tap started again from the charter.
+2. Each planning step (charter, cast, voice lock, skeleton, each outline batch) is now saved the moment it lands, straight to storage. Coming back, the button reads "Resume the outline (4 of 8 planned)" and only what is missing is asked for. Changing the brief, voice sample, chapter count or length starts the plan over.
+3. No single wait runs for minutes. A book over 5 chapters (20 for picture books and other short-chapter books) is planned as a skeleton and then 4 chapters a call, instead of one call that could run past 6 minutes. Each call is about a minute on a typical model, so leaving the app costs at most the call in progress.
+4. The screen stays awake while the book is being architected, as it already did while writing.
+5. A batch that came back one chapter short is now picked up by the next batch at the missing chapter, so chapters keep their numbers.
 # Bindery patch — October 17, 2026 (12): long books keep the voice of chapter 1
 The bundle is now index-7b9fb05c.js.
 1. In a long book the writer saw the earlier chapters only as summaries once the book outgrew the window. Summaries keep what happened but not how it was told, so each chapter took its voice from the last few, and the prose slid toward the model's default as the book went on.
